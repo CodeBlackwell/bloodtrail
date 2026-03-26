@@ -1,0 +1,283 @@
+{
+  "category": "owned_principal",
+  "description": "Queries starting from owned/compromised principals. After marking users as owned in BloodHound, use these queries to discover next steps, available access, and privilege escalation opportunities.",
+  "queries": [
+    {
+      "id": "owned-what-can-access",
+      "name": "What Can Owned User Access?",
+      "description": "Find all computers the owned user can access via any lateral movement method. First query to run after compromise.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[r:AdminTo|CanRDP|CanPSRemote|ExecuteDCOM]->(c:Computer)\nRETURN c.name AS Target,\n       c.bloodtrail_ip AS TargetIP,\n       type(r) AS AccessType,\n       c.operatingsystem AS OS\nORDER BY AccessType",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "CanRDP",
+        "CanPSRemote",
+        "ExecuteDCOM"
+      ],
+      "expected_results": "All computers accessible from owned user with access type",
+      "example_output": "CLIENT75.CORP.COM (AdminTo), FILE01.CORP.COM (CanRDP)",
+      "next_steps": [
+        "lateral-sessions-on-computer",
+        "owned-first-hop"
+      ],
+      "tags": [
+        "owned_principal",
+        "enumeration",
+        "first_step"
+      ]
+    },
+    {
+      "id": "owned-quick-wins-context",
+      "name": "Quick Wins from Owned User Context",
+      "description": "Combined query showing admin access, Kerberoastable, and AS-REP roastable targets from owned user's perspective.",
+      "cypher": "MATCH (owned:User {name:'<USER>'})\nOPTIONAL MATCH (owned)-[:AdminTo]->(c:Computer)\nWITH owned, collect(DISTINCT c.name) AS AdminOn\nMATCH (roast:User {hasspn:true, enabled:true})\nWHERE NOT roast.name STARTS WITH 'KRBTGT'\nWITH owned, AdminOn, collect(DISTINCT roast.name) AS Kerberoast\nMATCH (asrep:User {dontreqpreauth:true, enabled:true})\nRETURN AdminOn AS LocalAdminOn,\n       Kerberoast AS KerberoastTargets,\n       collect(DISTINCT asrep.name) AS ASREPTargets",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Combined view of quick win opportunities",
+      "example_output": "AdminOn: [CLIENT75], Kerberoast: [IIS_SERVICE], ASREP: [MIKE, DAVE]",
+      "next_steps": [
+        "lateral-sessions-on-computer",
+        "quick-kerberoastable"
+      ],
+      "tags": [
+        "owned_principal",
+        "quick_win",
+        "comprehensive"
+      ]
+    },
+    {
+      "id": "owned-path-to-da",
+      "name": "Path to DA from Owned User",
+      "description": "Find shortest path from owned user to Domain Admins group.",
+      "cypher": "MATCH p=shortestPath(\n  (u:User {name:'<USER>'})-[*1..10]->(g:Group)\n)\nWHERE g.name =~ '(?i).*DOMAIN ADMINS.*'\nRETURN [n IN nodes(p) | n.name] AS Path,\n       [r IN relationships(p) | type(r)] AS EdgeTypes,\n       length(p) AS Hops",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "MemberOf",
+        "HasSession",
+        "GenericAll",
+        "WriteDacl",
+        "ForceChangePassword"
+      ],
+      "expected_results": "Direct path from owned user to Domain Admins",
+      "example_output": "[PETE, IT_USERS, DOMAIN ADMINS] via [MemberOf, MemberOf] (2 hops)",
+      "next_steps": [],
+      "tags": [
+        "owned_principal",
+        "privilege_escalation",
+        "path_to_da"
+      ]
+    },
+    {
+      "id": "owned-group-memberships",
+      "name": "Owned User Group Memberships",
+      "description": "List all groups the owned user belongs to (including nested). Identifies inherited privileges.",
+      "cypher": "MATCH p=(u:User {name:'<USER>'})-[:MemberOf*1..5]->(g:Group)\nRETURN g.name AS GroupMembership,\n       g.admincount AS IsPrivilegedGroup,\n       length(p) AS NestingLevel\nORDER BY length(p)",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "All group memberships with nesting level",
+      "example_output": "DOMAIN USERS (level 1), IT_USERS (level 1), IT_ADMINS (level 2)",
+      "next_steps": [
+        "owned-outbound-control"
+      ],
+      "tags": [
+        "owned_principal",
+        "enumeration",
+        "group_membership"
+      ]
+    },
+    {
+      "id": "owned-outbound-control",
+      "name": "Outbound Object Control from Owned",
+      "description": "Find all objects the owned user has control over (GenericAll, WriteDacl, etc.). Identifies privilege escalation targets.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[r:GenericAll|GenericWrite|WriteDacl|WriteOwner|ForceChangePassword|Owns|AddMember]->(target)\nRETURN target.name AS ControlledObject,\n       labels(target) AS ObjectType,\n       type(r) AS ControlType",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "GenericAll",
+        "GenericWrite",
+        "WriteDacl",
+        "WriteOwner",
+        "ForceChangePassword",
+        "Owns",
+        "AddMember"
+      ],
+      "expected_results": "All objects the owned user controls",
+      "example_output": "SQL_SERVICE (User) via GenericWrite, IT_HELPDESK (Group) via AddMember",
+      "next_steps": [
+        "privesc-shadow-admins"
+      ],
+      "tags": [
+        "owned_principal",
+        "ACL_abuse",
+        "object_control"
+      ]
+    },
+    {
+      "id": "owned-first-hop",
+      "name": "First Hop Lateral Movement",
+      "description": "Find immediate lateral movement opportunities (single hop) from owned user to computers with interesting sessions.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[:AdminTo]->(c:Computer)<-[:HasSession]-(session:User)\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       collect(session.name) AS ActiveSessions,\n       collect(session.admincount) AS SessionPrivileged",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "MIKE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession"
+      ],
+      "expected_results": "Computers with sessions accessible in one hop",
+      "example_output": "CLIENT75.CORP.COM -> [MARIA@CORP.COM (admincount=true)]",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1003.001",
+      "tags": [
+        "owned_principal",
+        "lateral_movement",
+        "credential_harvest"
+      ]
+    },
+    {
+      "id": "owned-kerberoast-context",
+      "name": "Kerberoastable from Owned Context",
+      "description": "Find Kerberoastable accounts that the owned user has additional control over (for targeted attack).",
+      "cypher": "MATCH (u:User {name:'<USER>'})\nMATCH (kerberoast:User {hasspn:true, enabled:true})\nWHERE NOT kerberoast.name STARTS WITH 'KRBTGT'\nOPTIONAL MATCH (u)-[r:GenericAll|GenericWrite|ForceChangePassword]->(kerberoast)\nRETURN kerberoast.name AS ServiceAccount,\n       kerberoast.serviceprincipalnames AS SPNs,\n       CASE WHEN r IS NOT NULL THEN type(r) ELSE 'None' END AS AdditionalControl",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "GenericAll",
+        "GenericWrite",
+        "ForceChangePassword"
+      ],
+      "expected_results": "Kerberoastable accounts with any additional control relationships",
+      "example_output": "SQL_SERVICE (SPN: MSSQLSvc/sql01) - GenericWrite (can set SPN for targeted kerberoast)",
+      "next_steps": [
+        "quick-kerberoastable"
+      ],
+      "attack_technique": "T1558.003",
+      "tags": [
+        "owned_principal",
+        "kerberoast",
+        "targeted"
+      ]
+    },
+    {
+      "id": "owned-asrep-context",
+      "name": "AS-REP Targets from Owned Context",
+      "description": "Find AS-REP roastable accounts. These can be attacked without any additional access.",
+      "cypher": "MATCH (asrep:User {dontreqpreauth:true, enabled:true})\nRETURN asrep.name AS User,\n       asrep.admincount AS IsPrivileged,\n       asrep.description AS Description\nORDER BY asrep.admincount DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "AS-REP roastable users (no auth required)",
+      "example_output": "MIKE@CORP.COM, DAVE@CORP.COM (dontreqpreauth=true)",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "attack_technique": "T1558.004",
+      "tags": [
+        "owned_principal",
+        "AS-REP",
+        "no_auth_required"
+      ]
+    },
+    {
+      "id": "owned-session-opportunities",
+      "name": "Session Harvest Opportunities",
+      "description": "Find computers where owned user has admin AND privileged users have sessions. Prime mimikatz targets.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[:AdminTo]->(c:Computer)<-[:HasSession]-(priv:User {admincount:true})\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       collect(priv.name) AS PrivilegedSessions,\n       count(priv) AS SessionCount\nORDER BY SessionCount DESC",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "MIKE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession"
+      ],
+      "expected_results": "Computers with privileged sessions where owned user is admin",
+      "example_output": "CLIENT75.CORP.COM -> [MARIA@CORP.COM, JEFFADMIN@CORP.COM]",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1003.001",
+      "tags": [
+        "owned_principal",
+        "credential_harvest",
+        "HasSession"
+      ]
+    },
+    {
+      "id": "owned-chained-privesc",
+      "name": "Chained Privilege Escalation",
+      "description": "Find multi-step privilege escalation paths from owned user through intermediate targets to Domain Admin.",
+      "cypher": "MATCH p=(\n  (u:User {name:'<USER>'})-[r1:AdminTo|GenericAll|ForceChangePassword]->(hop1)-[r2:AdminTo|GenericAll|ForceChangePassword|HasSession]->(hop2)\n)\nWHERE hop2.admincount = true\n   OR hop2.name =~ '(?i).*DOMAIN ADMINS.*'\nRETURN u.name AS Start,\n       hop1.name AS FirstHop,\n       type(r1) AS FirstEdge,\n       hop2.name AS SecondHop,\n       type(r2) AS SecondEdge",
+      "variables": {
+        "USER": {
+          "description": "Owned username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "GenericAll",
+        "ForceChangePassword",
+        "HasSession"
+      ],
+      "expected_results": "Two-hop privilege escalation chains",
+      "example_output": "PETE -> CLIENT75 (AdminTo) -> MARIA (HasSession) [admincount=true]",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "tags": [
+        "owned_principal",
+        "chained_attack",
+        "multi_hop"
+      ]
+    }
+  ]
+}

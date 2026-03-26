@@ -1,0 +1,417 @@
+{
+  "category": "adcs",
+  "description": "AD Certificate Services attack paths (ESC1-ESC13). ADCS misconfigurations are critical privilege escalation vectors in modern Active Directory environments. These queries identify certificate template vulnerabilities, CA server weaknesses, and enrollment agent abuse opportunities.",
+  "queries": [
+    {
+      "id": "adcs-esc1-vulnerable",
+      "name": "ESC1 - Misconfigured Certificate Templates",
+      "description": "Find certificate templates vulnerable to ESC1: Client Authentication EKU + enrollee-supplied SAN + low-privilege enrollment. Allows requesting certs as any user.",
+      "cypher": "MATCH (n)-[:ADCSESC1]->(ct)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ct.name AS VulnerableTemplate",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC1"
+      ],
+      "expected_results": "Non-privileged principals with ESC1 attack paths",
+      "example_output": "DOMAIN_USERS@CORP.COM -[ADCSESC1]-> UserTemplate",
+      "next_steps": [
+        "adcs-enrollment-targets"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC1",
+        "certificate_abuse",
+        "privilege_escalation"
+      ]
+    },
+    {
+      "id": "adcs-esc3-enrollment-agents",
+      "name": "ESC3 - Enrollment Agent Abuse",
+      "description": "Find ESC3 attack paths where an enrollment agent certificate can be used to request certs on behalf of other users.",
+      "cypher": "MATCH (n)-[:ADCSESC3]->(ct)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ct.name AS AgentTemplate",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC3"
+      ],
+      "expected_results": "Principals with enrollment agent abuse paths",
+      "example_output": "HR_GROUP@CORP.COM -[ADCSESC3]-> EnrollmentAgentOffline",
+      "next_steps": [
+        "adcs-enroll-on-behalf"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC3",
+        "enrollment_agent"
+      ]
+    },
+    {
+      "id": "adcs-esc4-template-write",
+      "name": "ESC4 - Template Write Permissions",
+      "description": "Find principals with write access to certificate templates. Can modify templates to enable ESC1-like attacks.",
+      "cypher": "MATCH (n)-[:ADCSESC4]->(ct)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ct.name AS ModifiableTemplate",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC4"
+      ],
+      "expected_results": "Non-privileged principals who can modify certificate templates",
+      "example_output": "IT_SUPPORT@CORP.COM -[ADCSESC4]-> WebServerTemplate",
+      "next_steps": [
+        "adcs-esc1-vulnerable"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC4",
+        "template_modification"
+      ]
+    },
+    {
+      "id": "adcs-esc5-pki-object-acls",
+      "name": "ESC5 - Vulnerable PKI Object ACLs",
+      "description": "Find principals with dangerous permissions on PKI container objects (NTAuthCertificates, etc.).",
+      "cypher": "MATCH (n)-[:ADCSESC5]->(pki)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       pki.name AS PKIObject",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC5"
+      ],
+      "expected_results": "Principals with PKI object control",
+      "example_output": "CERT_PUBLISHERS@CORP.COM -[ADCSESC5]-> NTAuthCertificates",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC5",
+        "pki_acl"
+      ]
+    },
+    {
+      "id": "adcs-esc6a-editf-flag",
+      "name": "ESC6a - EDITF_ATTRIBUTESUBJECTALTNAME2 Flag",
+      "description": "Find CA servers with EDITF_ATTRIBUTESUBJECTALTNAME2 flag enabled. Allows any enrollee to specify SAN in certificate requests.",
+      "cypher": "MATCH (n)-[:ADCSESC6a]->(ca)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ca.name AS VulnerableCA",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC6a"
+      ],
+      "expected_results": "Attack paths through misconfigured CA servers",
+      "example_output": "DOMAIN_USERS@CORP.COM -[ADCSESC6a]-> CORP-CA",
+      "next_steps": [
+        "adcs-ca-servers"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC6",
+        "SAN_abuse"
+      ]
+    },
+    {
+      "id": "adcs-esc6b-issuance-requirements",
+      "name": "ESC6b - Weak Issuance Requirements",
+      "description": "Find ESC6b paths where weak issuance requirements allow certificate abuse.",
+      "cypher": "MATCH (n)-[:ADCSESC6b]->(ca)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ca.name AS VulnerableCA",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC6b"
+      ],
+      "expected_results": "Principals exploiting weak issuance requirements",
+      "example_output": "USERS@CORP.COM -[ADCSESC6b]-> SUB-CA",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC6",
+        "issuance_policy"
+      ]
+    },
+    {
+      "id": "adcs-esc7-ca-acls",
+      "name": "ESC7 - Vulnerable CA ACLs",
+      "description": "Find principals with ManageCA or ManageCertificates rights on CA servers. Can approve pending requests or modify CA configuration.",
+      "cypher": "MATCH (n)-[:ADCSESC7]->(ca)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ca.name AS TargetCA",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC7"
+      ],
+      "expected_results": "Non-privileged principals with CA management rights",
+      "example_output": "PKI_ADMINS@CORP.COM -[ADCSESC7]-> CORP-CA",
+      "next_steps": [
+        "adcs-manage-ca"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC7",
+        "ca_management"
+      ]
+    },
+    {
+      "id": "adcs-esc9a-no-security-extension",
+      "name": "ESC9a - No Security Extension (StrongCertificateBindingEnforcement)",
+      "description": "Find ESC9a paths where missing security extension allows certificate mapping bypass.",
+      "cypher": "MATCH (n)-[:ADCSESC9a]->(target)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       target.name AS Target",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC9a"
+      ],
+      "expected_results": "ESC9a attack paths",
+      "example_output": "LOW_USER@CORP.COM -[ADCSESC9a]-> HIGH_USER@CORP.COM",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC9",
+        "certificate_mapping"
+      ]
+    },
+    {
+      "id": "adcs-esc9b-weak-mapping",
+      "name": "ESC9b - Weak Certificate Mapping",
+      "description": "Find ESC9b paths exploiting weak certificate mapping configurations.",
+      "cypher": "MATCH (n)-[:ADCSESC9b]->(target)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       target.name AS Target",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC9b"
+      ],
+      "expected_results": "ESC9b weak mapping attack paths",
+      "example_output": "ATTACKER@CORP.COM -[ADCSESC9b]-> ADMIN@CORP.COM",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC9",
+        "weak_mapping"
+      ]
+    },
+    {
+      "id": "adcs-esc10a-weak-cert-binding",
+      "name": "ESC10a - Weak Certificate Binding",
+      "description": "Find ESC10a paths where weak certificate binding enables impersonation.",
+      "cypher": "MATCH (n)-[:ADCSESC10a]->(target)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       target.name AS Target",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC10a"
+      ],
+      "expected_results": "ESC10a certificate binding attack paths",
+      "example_output": "USER@CORP.COM -[ADCSESC10a]-> DA@CORP.COM",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC10",
+        "certificate_binding"
+      ]
+    },
+    {
+      "id": "adcs-esc10b-shadow-credentials",
+      "name": "ESC10b - Shadow Credentials via ADCS",
+      "description": "Find ESC10b attack paths combining shadow credentials with ADCS misconfigurations.",
+      "cypher": "MATCH (n)-[:ADCSESC10b]->(target)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       target.name AS Target",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC10b"
+      ],
+      "expected_results": "ESC10b shadow credential attack paths",
+      "example_output": "LOW_USER@CORP.COM -[ADCSESC10b]-> SERVICE_ACCOUNT@CORP.COM",
+      "next_steps": [
+        "privesc-shadow-credentials"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC10",
+        "shadow_credentials"
+      ]
+    },
+    {
+      "id": "adcs-esc13-oid-group",
+      "name": "ESC13 - OID Group Link Abuse",
+      "description": "Find ESC13 paths where issuance policy OID group links enable privilege escalation.",
+      "cypher": "MATCH (n)-[:ADCSESC13]->(target)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       target.name AS Target",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC13"
+      ],
+      "expected_results": "ESC13 OID group link attack paths",
+      "example_output": "USER@CORP.COM -[ADCSESC13]-> PRIV_GROUP@CORP.COM",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ESC13",
+        "oid_abuse"
+      ]
+    },
+    {
+      "id": "adcs-golden-cert",
+      "name": "Golden Certificate - CA Key Compromise",
+      "description": "Find principals with access to CA private keys (GoldenCert). Enables forging any certificate in the domain.",
+      "cypher": "MATCH (n)-[:GoldenCert]->(ca)\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       ca.name AS CompromisedCA",
+      "variables": {},
+      "edge_types_used": [
+        "GoldenCert"
+      ],
+      "expected_results": "Principals with CA key access",
+      "example_output": "CA_ADMIN@CORP.COM -[GoldenCert]-> CORP-CA",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "golden_cert",
+        "ca_compromise",
+        "persistence"
+      ]
+    },
+    {
+      "id": "adcs-enroll-on-behalf",
+      "name": "EnrollOnBehalfOf Rights",
+      "description": "Find principals who can enroll certificates on behalf of other users via enrollment agent relationships.",
+      "cypher": "MATCH (agent)-[:EnrollOnBehalfOf]->(victim)\nWHERE NOT agent.admincount = true\nRETURN agent.name AS EnrollmentAgent,\n       labels(agent) AS AgentType,\n       victim.name AS Victim",
+      "variables": {},
+      "edge_types_used": [
+        "EnrollOnBehalfOf"
+      ],
+      "expected_results": "Enrollment agent relationships enabling impersonation",
+      "example_output": "ENROLLMENT_AGENT@CORP.COM -[EnrollOnBehalfOf]-> DOMAIN_ADMINS@CORP.COM",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "enrollment_agent",
+        "impersonation"
+      ]
+    },
+    {
+      "id": "adcs-enrollment-targets",
+      "name": "Certificate Enrollment Rights",
+      "description": "Find non-privileged principals with Enroll rights on certificate templates.",
+      "cypher": "MATCH (n)-[:Enroll]->(ct)\nWHERE n.admincount = false\nRETURN n.name AS Principal,\n       labels(n) AS PrincipalType,\n       ct.name AS Template,\n       ct.enrolleesuppliessubject AS SuppliesSubject,\n       ct.authenticationenabled AS AuthEnabled",
+      "variables": {},
+      "edge_types_used": [
+        "Enroll"
+      ],
+      "expected_results": "Enrollment rights on certificate templates",
+      "example_output": "DOMAIN_USERS@CORP.COM -[Enroll]-> User (SuppliesSubject=true)",
+      "next_steps": [
+        "adcs-esc1-vulnerable"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "enrollment",
+        "enumeration"
+      ]
+    },
+    {
+      "id": "adcs-manage-ca",
+      "name": "ManageCA and ManageCertificates Rights",
+      "description": "Find non-privileged principals with CA management permissions. ManageCA allows configuration changes; ManageCertificates allows approving pending requests.",
+      "cypher": "MATCH (n)-[r:ManageCA|ManageCertificates]->(ca)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       type(r) AS Permission,\n       ca.name AS TargetCA",
+      "variables": {},
+      "edge_types_used": [
+        "ManageCA",
+        "ManageCertificates"
+      ],
+      "expected_results": "Non-privileged principals with CA management rights",
+      "example_output": "PKI_OPERATORS@CORP.COM -[ManageCA]-> CORP-CA",
+      "next_steps": [
+        "adcs-esc7-ca-acls"
+      ],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "ca_management",
+        "enumeration"
+      ]
+    },
+    {
+      "id": "adcs-ca-servers",
+      "name": "All Certificate Authority Servers",
+      "description": "Enumerate all Certificate Authority servers in the domain. CA servers are high-value targets.",
+      "cypher": "MATCH (ca:EnterpriseCA)\nRETURN ca.name AS CAServer,\n       ca.caname AS CAName,\n       ca.dnsname AS DNSName,\n       ca.flags AS Flags",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "List of CA servers in the domain",
+      "example_output": "CORP-CA.CORP.COM (CAName: CORP-CA, Flags: 0x40)",
+      "next_steps": [
+        "adcs-esc6a-editf-flag",
+        "adcs-manage-ca"
+      ],
+      "tags": [
+        "adcs",
+        "enumeration",
+        "ca_discovery"
+      ]
+    },
+    {
+      "id": "adcs-certificate-templates",
+      "name": "All Certificate Templates",
+      "description": "Enumerate all certificate templates with security-relevant properties.",
+      "cypher": "MATCH (ct:CertTemplate)\nRETURN ct.name AS Template,\n       ct.enrolleesuppliessubject AS SuppliesSubject,\n       ct.authenticationenabled AS AuthEnabled,\n       ct.requiresmanagerapproval AS ManagerApproval,\n       ct.nosecurityextension AS NoSecExt",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Certificate templates with security flags",
+      "example_output": "User (SuppliesSubject=false, AuthEnabled=true)",
+      "next_steps": [
+        "adcs-enrollment-targets"
+      ],
+      "tags": [
+        "adcs",
+        "enumeration",
+        "template_discovery"
+      ]
+    },
+    {
+      "id": "adcs-all-esc-paths",
+      "name": "All ESC Attack Paths (Summary)",
+      "description": "Find all ADCS ESC attack paths from non-privileged principals. Comprehensive overview of certificate service vulnerabilities.",
+      "cypher": "MATCH (n)-[r:ADCSESC1|ADCSESC3|ADCSESC4|ADCSESC5|ADCSESC6a|ADCSESC6b|ADCSESC7|ADCSESC9a|ADCSESC9b|ADCSESC10a|ADCSESC10b|ADCSESC13]->(target)\nWHERE n.admincount = false\nRETURN type(r) AS ESCType,\n       n.name AS Attacker,\n       target.name AS Target,\n       count(*) AS PathCount\nORDER BY ESCType, PathCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "ADCSESC1",
+        "ADCSESC3",
+        "ADCSESC4",
+        "ADCSESC5",
+        "ADCSESC6a",
+        "ADCSESC6b",
+        "ADCSESC7",
+        "ADCSESC9a",
+        "ADCSESC9b",
+        "ADCSESC10a",
+        "ADCSESC10b",
+        "ADCSESC13"
+      ],
+      "expected_results": "Summary of all ESC attack paths",
+      "example_output": "ESC1: 5 paths, ESC4: 2 paths, ESC6a: 3 paths",
+      "next_steps": [],
+      "attack_technique": "T1649",
+      "tags": [
+        "adcs",
+        "summary",
+        "attack_paths"
+      ]
+    },
+    {
+      "id": "adcs-ntauth-store",
+      "name": "NTAuthCertificates Store Access",
+      "description": "Find principals with write access to NTAuthCertificates. Controls which CAs are trusted for authentication.",
+      "cypher": "MATCH (n)-[r:GenericAll|GenericWrite|WriteDacl|WriteOwner]->(ntauth:NTAuthStore)\nWHERE n.admincount = false\nRETURN n.name AS Attacker,\n       labels(n) AS AttackerType,\n       type(r) AS Permission,\n       ntauth.name AS NTAuthStore",
+      "variables": {},
+      "edge_types_used": [
+        "GenericAll",
+        "GenericWrite",
+        "WriteDacl",
+        "WriteOwner"
+      ],
+      "expected_results": "Principals who can modify trusted CA list",
+      "example_output": "PKI_ADMINS@CORP.COM -[GenericWrite]-> NTAuthCertificates",
+      "next_steps": [],
+      "tags": [
+        "adcs",
+        "ntauth",
+        "trust_manipulation"
+      ]
+    }
+  ]
+}

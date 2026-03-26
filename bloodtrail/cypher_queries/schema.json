@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BloodHound Cypher Query Library Schema",
+  "description": "Schema for modular Cypher query files used with BloodHound Trail for Active Directory attack path discovery",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "category",
+    "description",
+    "queries"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "description": "Query category identifier (e.g., lateral_movement, quick_wins)",
+      "enum": [
+        "lateral_movement",
+        "quick_wins",
+        "privilege_escalation",
+        "attack_chains",
+        "operational",
+        "owned_principal"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "description": "Category purpose and when to use these queries"
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "cypher",
+          "oscp_relevance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Unique query identifier in kebab-case"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable query name"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this query finds and why it matters for OSCP"
+          },
+          "cypher": {
+            "type": "string",
+            "description": "The Cypher query with optional <PLACEHOLDERS> for variable substitution"
+          },
+          "variables": {
+            "type": "object",
+            "description": "Map of placeholder names to their descriptions and examples",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "example": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean",
+                  "default": true
+                }
+              }
+            }
+          },
+          "edge_types_used": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Neo4j relationship types this query depends on (imported by bloodtrail)"
+          },
+          "expected_results": {
+            "type": "string",
+            "description": "Description of what successful query output looks like"
+          },
+          "example_output": {
+            "type": "string",
+            "description": "Sample output from the DCSync capstone or similar environment"
+          },
+          "next_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Query IDs to run after this one for attack chain progression"
+          },
+          "attack_technique": {
+            "type": "string",
+            "description": "MITRE ATT&CK technique if applicable (e.g., T1003.006 for DCSync)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Searchable tags (e.g., OSCP:HIGH, lateral_movement, credential_access)"
+          }
+        }
+      }
+    }
+  },
+  "examples": {
+    "query_example": {
+      "id": "lateral-adminto-nonpriv",
+      "name": "Non-DA Users with Local Admin on Workstations",
+      "description": "Find non-privileged users with local admin rights on workstations (not DCs). KEY QUERY from DCSync capstone - discovered MIKE->CLIENT75 attack path.",
+      "cypher": "MATCH (u:User)-[:AdminTo]->(c:Computer)\nWHERE NOT u.admincount = true\n  AND NOT c.name STARTS WITH 'DC'\nRETURN u.name AS User,\n       collect(c.name) AS AdminOnComputers,\n       count(c) AS ComputerCount\nORDER BY ComputerCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "List of non-privileged users with local admin access to workstations",
+      "example_output": "MIKE@CORP.COM -> [CLIENT75.CORP.COM]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1078.002",
+      "tags": [
+        "lateral_movement",
+        "AdminTo",
+        "quick_win"
+      ]
+    }
+  },
+  "usage_notes": {
+    "variable_substitution": "Placeholders like <USER> should be replaced with actual values (e.g., PETE@CORP.COM). The QueryRunner handles this automatically.",
+    "edge_dependencies": "Queries depend on edge types imported by bloodtrail. Run 'crack bloodtrail /path/to/bh/json/' first to ensure edges exist.",
+    "neo4j_credentials": "Default: neo4j/Neo4j123. BloodHound: admin/1PlaySmarter*",
+    "query_categories": {
+      "lateral_movement": "AdminTo, CanRDP, CanPSRemote, ExecuteDCOM, HasSession edges for finding movement paths",
+      "quick_wins": "AS-REP roasting, Kerberoasting, delegation abuse - fast compromise opportunities",
+      "privilege_escalation": "ACL abuse (GenericAll, WriteDacl, DCSync) for escalating to Domain Admin",
+      "attack_chains": "Multi-hop queries reconstructing full attack paths from owned user to DA",
+      "operational": "Domain enumeration, password age, OS distribution for situational awareness",
+      "owned_principal": "Queries starting from owned/compromised users for next-step discovery"
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "category": "operational",
+  "description": "Operational intelligence and domain enumeration queries. Provides situational awareness about the AD environment including OS distribution, password age, trust relationships, and overall domain health.",
+  "queries": [
+    {
+      "id": "ops-computers-by-os",
+      "name": "Computers by Operating System (Find Legacy)",
+      "description": "Enumerate computers grouped by OS. Legacy systems (2008, 2003, XP) are often more vulnerable.",
+      "cypher": "MATCH (c:Computer {enabled:true})\nRETURN c.operatingsystem AS OS,\n       collect(c.name) AS Computers,\n       count(c) AS Count\nORDER BY Count DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Operating system distribution across domain",
+      "example_output": "Windows Server 2019 (5), Windows 10 Enterprise (15), Windows Server 2008 R2 (2)",
+      "next_steps": [
+        "ops-legacy-systems"
+      ],
+      "tags": [
+        "operational",
+        "enumeration",
+        "legacy"
+      ]
+    },
+    {
+      "id": "ops-legacy-systems",
+      "name": "Legacy Windows Systems",
+      "description": "Find Windows Server 2008/2003 and Windows 7/XP systems. Often missing patches and vulnerable to known exploits.",
+      "cypher": "MATCH (c:Computer {enabled:true})\nWHERE c.operatingsystem =~ '(?i).*(2008|2003|Windows 7|Windows XP|Vista).*'\nRETURN c.name AS Computer,\n       c.operatingsystem AS OS\nORDER BY c.operatingsystem",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Potentially vulnerable legacy systems",
+      "example_output": "FILE01.CORP.COM (Windows Server 2008 R2), CLIENT05.CORP.COM (Windows 7)",
+      "next_steps": [
+        "lateral-users-to-computer"
+      ],
+      "tags": [
+        "operational",
+        "legacy",
+        "vulnerability"
+      ]
+    },
+    {
+      "id": "ops-password-age",
+      "name": "Password Age Distribution",
+      "description": "Find users with old passwords. Old passwords may be weak or appear in breach databases.",
+      "cypher": "MATCH (u:User {enabled:true})\nWHERE u.pwdlastset > 0\nRETURN u.name AS User,\n       u.pwdlastset AS PasswordLastSet,\n       u.admincount AS IsPrivileged,\n       u.description AS Description\nORDER BY u.pwdlastset ASC\nLIMIT 25",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Users sorted by password age (oldest first)",
+      "example_output": "SVC_BACKUP@CORP.COM (pwdlastset: 2019-03-15)",
+      "next_steps": [
+        "quick-password-in-description"
+      ],
+      "tags": [
+        "operational",
+        "password_age"
+      ]
+    },
+    {
+      "id": "ops-inactive-users",
+      "name": "Inactive User Accounts",
+      "description": "Find enabled users who haven't logged in recently. May have default or forgotten passwords.",
+      "cypher": "MATCH (u:User {enabled:true})\nWHERE u.lastlogon > 0\n  AND u.lastlogon < (datetime().epochSeconds - 7776000) * 1000\nRETURN u.name AS User,\n       u.lastlogon AS LastLogon,\n       u.description AS Description\nORDER BY u.lastlogon ASC\nLIMIT 25",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Users inactive for 90+ days",
+      "example_output": "OLD_ADMIN@CORP.COM (lastlogon: 2022-01-15)",
+      "next_steps": [
+        "quick-password-in-description"
+      ],
+      "tags": [
+        "operational",
+        "inactive_accounts"
+      ]
+    },
+    {
+      "id": "ops-enabled-disabled-ratio",
+      "name": "Enabled vs Disabled Account Ratio",
+      "description": "Count enabled vs disabled accounts. High disabled count may indicate account churn.",
+      "cypher": "MATCH (u:User)\nRETURN u.enabled AS Enabled,\n       count(u) AS Count\nORDER BY Enabled DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Ratio of enabled to disabled accounts",
+      "example_output": "Enabled: 150, Disabled: 45",
+      "next_steps": [],
+      "tags": [
+        "operational",
+        "statistics"
+      ]
+    },
+    {
+      "id": "ops-trust-relationships",
+      "name": "Domain Trust Relationships",
+      "description": "Enumerate domain trust relationships. Trusts may provide cross-domain attack paths.",
+      "cypher": "MATCH (d:Domain)-[r:TrustedBy]->(t:Domain)\nRETURN d.name AS Domain,\n       t.name AS TrustedDomain,\n       r.trusttype AS TrustType,\n       r.transitive AS Transitive",
+      "variables": {},
+      "edge_types_used": [
+        "TrustedBy"
+      ],
+      "expected_results": "Trust relationships between domains",
+      "example_output": "CORP.COM <- CHILD.CORP.COM (Parent-Child, Transitive)",
+      "next_steps": [
+        "lateral-cross-trust"
+      ],
+      "tags": [
+        "operational",
+        "trusts",
+        "multi_domain"
+      ]
+    },
+    {
+      "id": "ops-relationship-counts",
+      "name": "Relationship Count by Type",
+      "description": "Count all relationship types in the database. Helps understand AD structure and attack surface.",
+      "cypher": "MATCH ()-[r]-()\nRETURN type(r) AS Relationship,\n       count(r) AS Count\nORDER BY Count DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "All relationship types with counts",
+      "example_output": "MemberOf: 500, AdminTo: 45, HasSession: 120",
+      "next_steps": [],
+      "tags": [
+        "operational",
+        "statistics",
+        "structure"
+      ]
+    },
+    {
+      "id": "ops-high-value-summary",
+      "name": "High-Value Target Summary",
+      "description": "List all objects marked as high-value in BloodHound. Primary targets for attack planning.",
+      "cypher": "MATCH (n {highvalue:true})\nRETURN n.name AS Target,\n       labels(n) AS Type,\n       n.description AS Description\nORDER BY labels(n), n.name",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "All high-value targets in the domain",
+      "example_output": "DC1.CORP.COM (Computer), DOMAIN ADMINS (Group), KRBTGT (User)",
+      "next_steps": [
+        "chain-to-high-value"
+      ],
+      "tags": [
+        "operational",
+        "high_value",
+        "target_prioritization"
+      ]
+    }
+  ]
+}

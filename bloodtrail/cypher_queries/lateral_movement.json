@@ -1,0 +1,334 @@
+{
+  "category": "lateral_movement",
+  "description": "Queries for discovering lateral movement opportunities in Active Directory. Uses AdminTo, CanRDP, CanPSRemote, ExecuteDCOM, and HasSession edges to find paths for moving between systems.",
+  "queries": [
+    {
+      "id": "lateral-adminto-nonpriv",
+      "name": "Non-DA Users with Local Admin on Workstations",
+      "description": "Find non-privileged users with local admin rights on workstations (not DCs). KEY QUERY from DCSync capstone - discovered MIKE->CLIENT75 attack path. These are prime lateral movement targets.",
+      "cypher": "MATCH (u:User)-[:AdminTo]->(c:Computer)\nWHERE NOT u.admincount = true\n  AND NOT c.name STARTS WITH 'DC'\nRETURN u.name AS User,\n       collect(c.name) AS AdminOnComputers,\n       collect(c.bloodtrail_ip) AS AdminOnIPs,\n       count(c) AS ComputerCount\nORDER BY ComputerCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "List of non-privileged users with local admin access to workstations",
+      "example_output": "MIKE@CORP.COM -> [CLIENT75.CORP.COM]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1078.002",
+      "tags": [
+        "lateral_movement",
+        "AdminTo",
+        "quick_win"
+      ]
+    },
+    {
+      "id": "lateral-all-admins-per-computer",
+      "name": "All Local Admins per Computer",
+      "description": "Enumerate all principals (users, groups) with local admin rights on each computer. Useful for identifying high-value targets with many admin paths.",
+      "cypher": "MATCH (n)-[:AdminTo]->(c:Computer)\nWHERE NOT c.name STARTS WITH 'DC'\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       collect(n.name) AS LocalAdmins,\n       count(n) AS AdminCount\nORDER BY AdminCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Computers listed with all principals that have local admin access",
+      "example_output": "CLIENT75.CORP.COM -> [MIKE@CORP.COM, DAVE@CORP.COM, DOMAIN ADMINS@CORP.COM]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "AdminTo",
+        "enumeration"
+      ]
+    },
+    {
+      "id": "lateral-psremote-targets",
+      "name": "PSRemote Access (Evil-WinRM Targets)",
+      "description": "Find users with PowerShell Remoting access to computers. These are Evil-WinRM targets for lateral movement.",
+      "cypher": "MATCH (u)-[:CanPSRemote]->(c:Computer)\nRETURN u.name AS User,\n       collect(c.name) AS PSRemoteTargets,\n       collect(c.bloodtrail_ip) AS PSRemoteIPs,\n       count(c) AS TargetCount\nORDER BY TargetCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "CanPSRemote"
+      ],
+      "expected_results": "Users with PSRemote access and their target computers",
+      "example_output": "PETE@CORP.COM -> [FILE01.CORP.COM, WEB01.CORP.COM]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "CanPSRemote",
+        "Evil-WinRM"
+      ]
+    },
+    {
+      "id": "lateral-rdp-targets",
+      "name": "RDP Access Targets",
+      "description": "Find users with Remote Desktop access to computers. RDP provides interactive access for credential harvesting.",
+      "cypher": "MATCH (u)-[:CanRDP]->(c:Computer)\nRETURN u.name AS User,\n       collect(c.name) AS RDPTargets,\n       collect(c.bloodtrail_ip) AS RDPIPs,\n       count(c) AS TargetCount\nORDER BY TargetCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "CanRDP"
+      ],
+      "expected_results": "Users with RDP access and their target computers",
+      "example_output": "HELPDESK@CORP.COM -> [CLIENT01.CORP.COM, CLIENT02.CORP.COM]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "CanRDP",
+        "RDP"
+      ]
+    },
+    {
+      "id": "lateral-dcom-targets",
+      "name": "DCOM Execution Rights",
+      "description": "Find users with DCOM execution rights on computers. DCOM can be used for lateral movement via impacket-dcomexec.",
+      "cypher": "MATCH (u)-[:ExecuteDCOM]->(c:Computer)\nRETURN u.name AS User,\n       collect(c.name) AS DCOMTargets,\n       collect(c.bloodtrail_ip) AS DCOMIPs,\n       count(c) AS TargetCount\nORDER BY TargetCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "ExecuteDCOM"
+      ],
+      "expected_results": "Users with DCOM execution rights and their target computers",
+      "example_output": "SVCADMIN@CORP.COM -> [APP01.CORP.COM]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "ExecuteDCOM",
+        "DCOM"
+      ]
+    },
+    {
+      "id": "lateral-sessions-on-computer",
+      "name": "Sessions on Specific Computer",
+      "description": "Find all user sessions on a specific computer. Critical for identifying credential harvest opportunities after lateral movement.",
+      "cypher": "MATCH (c:Computer {name:'<COMPUTER>'})<-[:HasSession]-(u:User)\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       u.name AS LoggedOnUser,\n       u.admincount AS IsPrivileged,\n       u.enabled AS Enabled",
+      "variables": {
+        "COMPUTER": {
+          "description": "Target computer name in FQDN format",
+          "example": "CLIENT75.CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "HasSession"
+      ],
+      "expected_results": "List of users with active sessions on the target computer",
+      "example_output": "CLIENT75.CORP.COM <- MARIA@CORP.COM (admincount=true)",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "tags": [
+        "lateral_movement",
+        "HasSession",
+        "credential_harvest"
+      ]
+    },
+    {
+      "id": "lateral-user-access-all",
+      "name": "All Computer Access for Specific User",
+      "description": "Find all computers a specific user can access via any lateral movement method (AdminTo, CanRDP, CanPSRemote).",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[r:AdminTo|CanRDP|CanPSRemote]->(c:Computer)\nRETURN c.name AS Target,\n       c.bloodtrail_ip AS TargetIP,\n       type(r) AS AccessType\nORDER BY AccessType",
+      "variables": {
+        "USER": {
+          "description": "Username in UPN format",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "CanRDP",
+        "CanPSRemote"
+      ],
+      "expected_results": "All computers the user can access with the type of access",
+      "example_output": "CLIENT75.CORP.COM (AdminTo), FILE01.CORP.COM (CanRDP)",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "enumeration"
+      ]
+    },
+    {
+      "id": "lateral-users-to-computer",
+      "name": "All Users Who Can Access Specific Computer",
+      "description": "Find all users who can access a specific computer via any method. Useful when you've identified a high-value target.",
+      "cypher": "MATCH (u)-[r:AdminTo|CanRDP|CanPSRemote]->(c:Computer {name:'<COMPUTER>'})\nRETURN u.name AS User,\n       type(r) AS AccessType,\n       labels(u) AS UserType\nORDER BY AccessType",
+      "variables": {
+        "COMPUTER": {
+          "description": "Target computer name in FQDN format",
+          "example": "DC1.CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "CanRDP",
+        "CanPSRemote"
+      ],
+      "expected_results": "All principals who can access the target computer",
+      "example_output": "DOMAIN ADMINS@CORP.COM (AdminTo), HELPDESK@CORP.COM (CanRDP)",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "target_analysis"
+      ]
+    },
+    {
+      "id": "lateral-domain-users-admin",
+      "name": "Computers Where Domain Users Are Local Admin",
+      "description": "Find computers where the Domain Users group has local admin. Major misconfiguration - any domain user can compromise these systems.",
+      "cypher": "MATCH (g:Group)-[:AdminTo]->(c:Computer)\nWHERE g.name =~ '(?i).*DOMAIN USERS.*'\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.operatingsystem AS OS\nORDER BY c.name",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Computers with Domain Users as local admin",
+      "example_output": "WORKSTATION01.CORP.COM (Windows 10 Enterprise)",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "misconfiguration",
+        "quick_win"
+      ]
+    },
+    {
+      "id": "lateral-multi-path-computers",
+      "name": "Computers with Multiple Admin Paths",
+      "description": "Find computers accessible via multiple different users. These are high-value targets with more exploitation options.",
+      "cypher": "MATCH (n)-[:AdminTo]->(c:Computer)\nWHERE NOT c.name STARTS WITH 'DC'\nWITH c, collect(n.name) AS admins, count(n) AS adminCount\nWHERE adminCount > 2\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       adminCount AS NumberOfAdminPaths,\n       admins AS Admins\nORDER BY adminCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Computers with many admin paths for alternative exploitation routes",
+      "example_output": "CLIENT75.CORP.COM (5 paths) -> [MIKE, DAVE, JEFF, IT_ADMINS, DOMAIN ADMINS]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "target_prioritization"
+      ]
+    },
+    {
+      "id": "lateral-da-sessions-workstations",
+      "name": "Workstations with Domain Admin Sessions",
+      "description": "Find workstations where Domain Admins have active sessions. Prime targets for credential harvesting with mimikatz.",
+      "cypher": "MATCH (c:Computer)<-[:HasSession]-(u:User)\nWHERE NOT c.name STARTS WITH 'DC'\n  AND u.admincount = true\nRETURN c.name AS Workstation,\n       c.bloodtrail_ip AS WorkstationIP,\n       collect(u.name) AS PrivilegedSessions,\n       count(u) AS SessionCount\nORDER BY SessionCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "HasSession"
+      ],
+      "expected_results": "Workstations with privileged user sessions for credential theft",
+      "example_output": "CLIENT75.CORP.COM <- [MARIA@CORP.COM, JEFFADMIN@CORP.COM]",
+      "next_steps": [
+        "lateral-adminto-nonpriv",
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1003.001",
+      "tags": [
+        "lateral_movement",
+        "credential_harvest",
+        "HasSession"
+      ]
+    },
+    {
+      "id": "lateral-cross-trust",
+      "name": "Cross-Trust Lateral Movement",
+      "description": "Find users from trusted domains with local admin access. Useful in multi-domain environments.",
+      "cypher": "MATCH (u:User)-[:AdminTo]->(c:Computer)\nWHERE NOT u.domain = c.domain\nRETURN u.name AS ForeignUser,\n       u.domain AS UserDomain,\n       c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.domain AS ComputerDomain",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Cross-domain admin relationships for trust abuse",
+      "example_output": "ADMIN@CHILD.CORP.COM -> SERVER01.CORP.COM",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "lateral_movement",
+        "trust_abuse",
+        "multi_domain"
+      ]
+    },
+    {
+      "id": "lateral-coerce-to-tgt",
+      "name": "Coercion Targets (Unconstrained Delegation)",
+      "description": "Find computers with unconstrained delegation that can capture TGTs via coercion attacks (PetitPotam, PrinterBug, DFSCoerce). Coerce a DC to authenticate to these systems to capture its TGT.",
+      "cypher": "MATCH (c:Computer)-[:CoerceToTGT]->(target)\nRETURN c.name AS CoercionHost,\n       c.bloodtrail_ip AS CoercionHostIP,\n       c.operatingsystem AS OS,\n       target.name AS CanCaptureTGTFrom,\n       labels(target) AS TargetType",
+      "variables": {},
+      "edge_types_used": [
+        "CoerceToTGT"
+      ],
+      "expected_results": "Unconstrained delegation hosts that can capture TGTs via coercion",
+      "example_output": "WEB01.CORP.COM -[CoerceToTGT]-> DC1.CORP.COM",
+      "next_steps": [
+        "delegation-unconstrained"
+      ],
+      "attack_technique": "T1187",
+      "tags": [
+        "lateral_movement",
+        "coercion",
+        "PetitPotam",
+        "PrinterBug",
+        "TGT_capture"
+      ]
+    },
+    {
+      "id": "lateral-sid-history",
+      "name": "SID History Abuse Paths",
+      "description": "Find principals with SID history that grants elevated access. Attackers can inject SID history to gain privileges of another account.",
+      "cypher": "MATCH (n)-[:HasSIDHistory]->(target)\nRETURN n.name AS Principal,\n       labels(n) AS PrincipalType,\n       target.name AS HasSIDOf,\n       labels(target) AS TargetType,\n       target.admincount AS TargetIsPrivileged",
+      "variables": {},
+      "edge_types_used": [
+        "HasSIDHistory"
+      ],
+      "expected_results": "Principals with SID history pointing to other accounts",
+      "example_output": "MIGRATED_USER@CORP.COM -[HasSIDHistory]-> OLD_ADMIN@CORP.COM (admincount=true)",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1134.005",
+      "tags": [
+        "lateral_movement",
+        "SID_history",
+        "token_manipulation"
+      ]
+    },
+    {
+      "id": "lateral-trust-abuse",
+      "name": "Domain Trust Relationships",
+      "description": "Map all domain trust relationships. Trust direction determines attack paths: inbound trusts allow authentication from trusted domain.",
+      "cypher": "MATCH (source:Domain)-[:TrustedBy]->(target:Domain)\nRETURN source.name AS TrustingDomain,\n       target.name AS TrustedDomain",
+      "variables": {},
+      "edge_types_used": [
+        "TrustedBy"
+      ],
+      "expected_results": "Domain trust relationships for cross-domain attacks",
+      "example_output": "CORP.COM -[TrustedBy]-> DEV.CORP.COM (Dev trusts Corp)",
+      "next_steps": [
+        "lateral-cross-trust"
+      ],
+      "attack_technique": "T1482",
+      "tags": [
+        "lateral_movement",
+        "trust_abuse",
+        "multi_domain",
+        "enumeration"
+      ]
+    }
+  ]
+}

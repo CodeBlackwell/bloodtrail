@@ -1,0 +1,252 @@
+{
+  "category": "quick_wins",
+  "description": "Low-hanging fruit queries for rapid compromise. Identifies AS-REP roastable users, Kerberoastable service accounts, delegation abuse opportunities, and common misconfigurations.",
+  "queries": [
+    {
+      "id": "quick-asrep-roastable",
+      "name": "AS-REP Roastable Users",
+      "description": "Find users with Kerberos pre-authentication disabled (dontreqpreauth=true). These can be AS-REP roasted without authentication using GetNPUsers.py.",
+      "cypher": "MATCH (u:User)\nWHERE u.dontreqpreauth = true\n  AND u.enabled = true\nRETURN u.name AS User,\n       u.admincount AS IsPrivileged,\n       u.description AS Description\nORDER BY u.admincount DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Users vulnerable to AS-REP roasting",
+      "example_output": "MIKE@CORP.COM (admincount=false), DAVE@CORP.COM (admincount=false)",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "attack_technique": "T1558.004",
+      "tags": [
+        "quick_win",
+        "AS-REP",
+        "kerberos",
+        "credential_access"
+      ]
+    },
+    {
+      "id": "quick-kerberoastable",
+      "name": "Kerberoastable Service Accounts",
+      "description": "Find users with Service Principal Names (SPNs). These can be Kerberoasted to obtain TGS hashes for offline cracking.",
+      "cypher": "MATCH (u:User)\nWHERE u.hasspn = true\n  AND u.enabled = true\n  AND NOT u.name STARTS WITH 'KRBTGT'\nRETURN u.name AS ServiceAccount,\n       u.serviceprincipalnames AS SPNs,\n       u.admincount AS IsPrivileged,\n       u.description AS Description\nORDER BY u.admincount DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Service accounts with SPNs for Kerberoasting",
+      "example_output": "IIS_SERVICE@CORP.COM (SPN: HTTP/web01.corp.com)",
+      "next_steps": [
+        "lateral-adminto-nonpriv",
+        "privesc-shadow-admins"
+      ],
+      "attack_technique": "T1558.003",
+      "tags": [
+        "quick_win",
+        "Kerberoast",
+        "SPN",
+        "credential_access"
+      ]
+    },
+    {
+      "id": "quick-kerberoastable-privileged",
+      "name": "High-Value Kerberoastable (Privileged + SPN)",
+      "description": "Find privileged users with SPNs. Cracking these provides immediate privilege escalation.",
+      "cypher": "MATCH (u:User)\nWHERE u.hasspn = true\n  AND u.enabled = true\n  AND u.admincount = true\nRETURN u.name AS HighValueTarget,\n       u.serviceprincipalnames AS SPNs,\n       u.description AS Description",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Privileged accounts with SPNs (priority Kerberoast targets)",
+      "example_output": "SQL_ADMIN@CORP.COM (admincount=true, SPN: MSSQLSvc/sql01.corp.com)",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1558.003",
+      "tags": [
+        "quick_win",
+        "Kerberoast",
+        "high_value"
+      ]
+    },
+    {
+      "id": "quick-unconstrained-delegation",
+      "name": "Unconstrained Delegation Systems",
+      "description": "Find computers with unconstrained delegation enabled. These can be abused to capture TGTs from authenticating users (printer bug, coercion attacks).",
+      "cypher": "MATCH (c:Computer)\nWHERE c.unconstraineddelegation = true\n  AND c.enabled = true\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.operatingsystem AS OS,\n       c.description AS Description",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Computers with unconstrained delegation for TGT theft",
+      "example_output": "DC1.CORP.COM (Windows Server 2019), IIS_SERVER.CORP.COM",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "quick_win",
+        "delegation",
+        "TGT_theft"
+      ]
+    },
+    {
+      "id": "quick-constrained-delegation",
+      "name": "Constrained Delegation Principals",
+      "description": "Find users and computers with constrained delegation. Can be abused for S4U2Self/S4U2Proxy attacks to impersonate users.",
+      "cypher": "MATCH (n)\nWHERE n.trustedtoauth = true\n  AND n.enabled = true\nRETURN labels(n) AS Type,\n       n.name AS Principal,\n       n.allowedtodelegate AS DelegationTargets",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Principals with constrained delegation and their targets",
+      "example_output": "IIS_SERVICE@CORP.COM -> [cifs/dc1.corp.com, http/web01.corp.com]",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "quick_win",
+        "delegation",
+        "S4U2Self"
+      ]
+    },
+    {
+      "id": "quick-password-in-description",
+      "name": "Users with Passwords in Description",
+      "description": "Find users with password hints or actual passwords in their AD description field. Common admin mistake.",
+      "cypher": "MATCH (u:User)\nWHERE u.description IS NOT NULL\n  AND u.description <> ''\n  AND u.description =~ '(?i).*(pass|pwd|password|cred|secret).*'\nRETURN u.name AS User,\n       u.description AS Description,\n       u.admincount AS IsPrivileged\nORDER BY u.admincount DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Users with password information in description",
+      "example_output": "BACKUP_SVC@CORP.COM (Description: 'Backup service - temp password: Backup2024!')",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "tags": [
+        "quick_win",
+        "password_discovery",
+        "misconfiguration"
+      ]
+    },
+    {
+      "id": "quick-password-never-expires",
+      "name": "Accounts with Password Never Expires",
+      "description": "Find accounts with non-expiring passwords. Often service accounts with weak passwords or credentials in documentation.",
+      "cypher": "MATCH (u:User)\nWHERE u.pwdneverexpires = true\n  AND u.enabled = true\n  AND NOT u.name STARTS WITH 'KRBTGT'\nRETURN u.name AS User,\n       u.admincount AS IsPrivileged,\n       u.description AS Description\nORDER BY u.admincount DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Accounts with non-expiring passwords (potential weak passwords)",
+      "example_output": "SVC_BACKUP@CORP.COM (pwdneverexpires=true)",
+      "next_steps": [
+        "quick-password-in-description"
+      ],
+      "tags": [
+        "quick_win",
+        "password_policy"
+      ]
+    },
+    {
+      "id": "quick-never-logged-in",
+      "name": "Accounts That Never Logged In",
+      "description": "Find accounts that have never logged in. May have default or documented passwords.",
+      "cypher": "MATCH (u:User)\nWHERE u.lastlogon = 0\n  AND u.enabled = true\nRETURN u.name AS User,\n       u.description AS Description,\n       u.whencreated AS Created\nORDER BY u.whencreated DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Unused accounts with potential default credentials",
+      "example_output": "TEST_USER@CORP.COM (never logged in, created 2023-01-15)",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "tags": [
+        "quick_win",
+        "unused_accounts"
+      ]
+    },
+    {
+      "id": "quick-laps-gaps",
+      "name": "Computers Without LAPS",
+      "description": "Find computers that don't have LAPS deployed. Local admin passwords may be reused or weak.",
+      "cypher": "MATCH (c:Computer)\nWHERE c.haslaps = false\n  AND c.enabled = true\n  AND NOT c.name STARTS WITH 'DC'\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.operatingsystem AS OS\nORDER BY c.name",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Computers without LAPS (potential password reuse)",
+      "example_output": "CLIENT01.CORP.COM, CLIENT02.CORP.COM (no LAPS)",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "tags": [
+        "quick_win",
+        "LAPS",
+        "password_reuse"
+      ]
+    },
+    {
+      "id": "quick-prewin2000-accounts",
+      "name": "Pre-Windows 2000 Compatible Access Accounts",
+      "description": "Find computers in Pre-Windows 2000 Compatible Access group. Legacy compatibility may expose vulnerabilities.",
+      "cypher": "MATCH (g:Group)-[:MemberOf*0..]->(p:Group)\nWHERE p.name =~ '(?i).*PRE-WINDOWS 2000.*'\nMATCH (m)-[:MemberOf]->(g)\nRETURN m.name AS Member,\n       labels(m) AS Type,\n       g.name AS ViaGroup",
+      "variables": {},
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "Members of Pre-Windows 2000 compatibility groups",
+      "example_output": "ANONYMOUS LOGON, Authenticated Users",
+      "next_steps": [],
+      "tags": [
+        "quick_win",
+        "legacy",
+        "compatibility"
+      ]
+    },
+    {
+      "id": "quick-gmsa-password",
+      "name": "ReadGMSAPassword Rights",
+      "description": "Find principals who can read Group Managed Service Account passwords. Direct credential access without cracking.",
+      "cypher": "MATCH (attacker)-[:ReadGMSAPassword]->(gmsa:User)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       gmsa.name AS GMSAAccount,\n       gmsa.description AS Description",
+      "variables": {},
+      "edge_types_used": [
+        "ReadGMSAPassword"
+      ],
+      "expected_results": "Non-privileged principals who can read gMSA passwords",
+      "example_output": "WEB_SERVERS@CORP.COM -[ReadGMSAPassword]-> GMSA_IIS$@CORP.COM",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "attack_technique": "T1555",
+      "tags": [
+        "quick_win",
+        "gMSA",
+        "credential_access"
+      ]
+    },
+    {
+      "id": "quick-laps-readers",
+      "name": "ReadLAPSPassword Rights",
+      "description": "Find non-privileged principals who can read LAPS passwords. Direct local admin credential access.",
+      "cypher": "MATCH (attacker)-[:ReadLAPSPassword]->(c:Computer)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       collect(c.name) AS Computers,\n       collect(c.bloodtrail_ip) AS ComputerIPs,\n       count(c) AS ComputerCount\nORDER BY ComputerCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "ReadLAPSPassword"
+      ],
+      "expected_results": "Non-privileged principals with LAPS read access",
+      "example_output": "HELPDESK@CORP.COM -> [CLIENT01, CLIENT02, CLIENT03] (3 computers)",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1555",
+      "tags": [
+        "quick_win",
+        "LAPS",
+        "credential_access"
+      ]
+    },
+    {
+      "id": "quick-gmsa-all",
+      "name": "All gMSA Accounts",
+      "description": "Enumerate all Group Managed Service Accounts. gMSAs often have elevated privileges and their passwords can be retrieved if you have ReadGMSAPassword.",
+      "cypher": "MATCH (gmsa:User)\nWHERE gmsa.gmsa = true\n   OR gmsa.name ENDS WITH '$'\nRETURN gmsa.name AS GMSAAccount,\n       gmsa.description AS Description,\n       gmsa.admincount AS IsPrivileged,\n       gmsa.enabled AS Enabled",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "All gMSA accounts in the domain",
+      "example_output": "GMSA_SQL$@CORP.COM (admincount=false), GMSA_IIS$@CORP.COM",
+      "next_steps": [
+        "quick-gmsa-password"
+      ],
+      "tags": [
+        "quick_win",
+        "gMSA",
+        "enumeration"
+      ]
+    }
+  ]
+}

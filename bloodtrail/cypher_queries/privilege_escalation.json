@@ -1,0 +1,548 @@
+{
+  "category": "privilege_escalation",
+  "description": "ACL abuse and privilege escalation path queries. Uses GenericAll, WriteDacl, WriteOwner, ForceChangePassword, GetChanges, and other ACL-based edges to find paths to Domain Admin.",
+  "queries": [
+    {
+      "id": "privesc-dcsync-rights",
+      "name": "DCSync Rights",
+      "description": "Find principals with DCSync rights (GetChanges + GetChangesAll on Domain). Can perform secretsdump.py to extract all domain hashes.",
+      "cypher": "MATCH (n)-[r:GetChanges|GetChangesAll]->(d:Domain)\nRETURN DISTINCT n.name AS Principal,\n       labels(n) AS Type,\n       type(r) AS Right",
+      "variables": {},
+      "edge_types_used": [
+        "GetChanges",
+        "GetChangesAll"
+      ],
+      "expected_results": "Principals with DCSync rights for domain hash extraction",
+      "example_output": "DOMAIN ADMINS@CORP.COM (GetChanges, GetChangesAll)",
+      "next_steps": [],
+      "attack_technique": "T1003.006",
+      "tags": [
+        "privilege_escalation",
+        "DCSync",
+        "domain_compromise"
+      ]
+    },
+    {
+      "id": "privesc-genericall-highvalue",
+      "name": "GenericAll on High-Value Targets",
+      "description": "Find principals with GenericAll (full control) over privileged users, groups, or computers. Can reset passwords, modify group memberships, etc.",
+      "cypher": "MATCH (attacker)-[:GenericAll]->(victim)\nWHERE victim.admincount = true\n   OR victim.name =~ '(?i).*(ADMIN|DOMAIN|ENTERPRISE).*'\nRETURN attacker.name AS Attacker,\n       victim.name AS Victim,\n       labels(victim) AS VictimType\nLIMIT 50",
+      "variables": {},
+      "edge_types_used": [
+        "GenericAll"
+      ],
+      "expected_results": "Attack paths via GenericAll to privileged objects",
+      "example_output": "HELPDESK@CORP.COM -> DOMAIN ADMINS@CORP.COM (GenericAll)",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1222.001",
+      "tags": [
+        "privilege_escalation",
+        "GenericAll",
+        "ACL_abuse"
+      ]
+    },
+    {
+      "id": "privesc-shadow-admins",
+      "name": "Shadow Admins (Control over DA Users)",
+      "description": "Find non-privileged users with control over Domain Admin accounts. These 'shadow admins' can escalate without being in DA group.",
+      "cypher": "MATCH (attacker)-[r:GenericAll|GenericWrite|ForceChangePassword|WriteDacl|WriteOwner|Owns]->(victim:User)\nWHERE victim.admincount = true\n  AND NOT attacker.admincount = true\nRETURN attacker.name AS ShadowAdmin,\n       type(r) AS Permission,\n       victim.name AS CanControl",
+      "variables": {},
+      "edge_types_used": [
+        "GenericAll",
+        "GenericWrite",
+        "ForceChangePassword",
+        "WriteDacl",
+        "WriteOwner",
+        "Owns"
+      ],
+      "expected_results": "Non-privileged users who control privileged accounts",
+      "example_output": "IT_HELPDESK@CORP.COM -[ForceChangePassword]-> JEFFADMIN@CORP.COM",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1098",
+      "tags": [
+        "privilege_escalation",
+        "shadow_admin",
+        "ACL_abuse"
+      ]
+    },
+    {
+      "id": "privesc-writedacl",
+      "name": "WriteDacl Abuse Paths",
+      "description": "Find principals with WriteDacl on high-value targets. Can grant themselves GenericAll then escalate further.",
+      "cypher": "MATCH (attacker)-[:WriteDacl]->(victim)\nWHERE victim.admincount = true\n   OR victim.name =~ '(?i).*(ADMIN|DOMAIN).*'\nRETURN attacker.name AS Attacker,\n       victim.name AS Victim,\n       labels(victim) AS VictimType",
+      "variables": {},
+      "edge_types_used": [
+        "WriteDacl"
+      ],
+      "expected_results": "Principals who can modify permissions on privileged objects",
+      "example_output": "SERVICEMGR@CORP.COM -[WriteDacl]-> IT_ADMINS@CORP.COM",
+      "next_steps": [
+        "privesc-genericall-highvalue"
+      ],
+      "attack_technique": "T1222.001",
+      "tags": [
+        "privilege_escalation",
+        "WriteDacl",
+        "ACL_abuse"
+      ]
+    },
+    {
+      "id": "privesc-writeowner",
+      "name": "WriteOwner Abuse Paths",
+      "description": "Find principals with WriteOwner on targets. Can take ownership, then WriteDacl, then GenericAll.",
+      "cypher": "MATCH (attacker)-[:WriteOwner]->(victim)\nWHERE victim.admincount = true\n   OR victim.name =~ '(?i).*(ADMIN|DOMAIN).*'\nRETURN attacker.name AS Attacker,\n       victim.name AS Victim,\n       labels(victim) AS VictimType",
+      "variables": {},
+      "edge_types_used": [
+        "WriteOwner"
+      ],
+      "expected_results": "Principals who can take ownership of privileged objects",
+      "example_output": "DEVOPS@CORP.COM -[WriteOwner]-> SQL_ADMINS@CORP.COM",
+      "next_steps": [
+        "privesc-writedacl"
+      ],
+      "attack_technique": "T1222.001",
+      "tags": [
+        "privilege_escalation",
+        "WriteOwner",
+        "ACL_abuse"
+      ]
+    },
+    {
+      "id": "privesc-shadow-credentials",
+      "name": "AddKeyCredentialLink (Shadow Credentials)",
+      "description": "Find principals with AddKeyCredentialLink permission. Can add msDS-KeyCredentialLink for certificate-based auth without knowing password.",
+      "cypher": "MATCH (attacker)-[:AddKeyCredentialLink]->(victim)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       victim.name AS Target,\n       labels(victim) AS TargetType",
+      "variables": {},
+      "edge_types_used": [
+        "AddKeyCredentialLink"
+      ],
+      "expected_results": "Principals who can perform shadow credentials attack",
+      "example_output": "HELPDESK@CORP.COM -[AddKeyCredentialLink]-> SQL_SERVICE@CORP.COM",
+      "next_steps": [
+        "lateral-adminto-nonpriv"
+      ],
+      "attack_technique": "T1098.001",
+      "tags": [
+        "privilege_escalation",
+        "shadow_credentials",
+        "whisker"
+      ]
+    },
+    {
+      "id": "privesc-force-change-password",
+      "name": "ForceChangePassword Rights",
+      "description": "Find principals who can reset passwords without knowing current password. Direct credential compromise.",
+      "cypher": "MATCH (attacker)-[:ForceChangePassword]->(victim:User)\nWHERE NOT attacker.admincount = true\n  AND victim.enabled = true\nRETURN attacker.name AS Attacker,\n       victim.name AS CanResetPassword,\n       victim.admincount AS VictimIsPrivileged\nORDER BY victim.admincount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "ForceChangePassword"
+      ],
+      "expected_results": "Non-privileged users who can reset others' passwords",
+      "example_output": "HELPDESK@CORP.COM -[ForceChangePassword]-> SQL_SERVICE@CORP.COM",
+      "next_steps": [
+        "lateral-adminto-nonpriv",
+        "privesc-shadow-admins"
+      ],
+      "attack_technique": "T1098",
+      "tags": [
+        "privilege_escalation",
+        "ForceChangePassword",
+        "password_reset"
+      ]
+    },
+    {
+      "id": "privesc-addmember",
+      "name": "AddMember to Privileged Groups",
+      "description": "Find principals who can add members to privileged groups. Direct path to privilege escalation.",
+      "cypher": "MATCH (attacker)-[:AddMember]->(group:Group)\nWHERE group.admincount = true\n   OR group.name =~ '(?i).*(ADMIN|DOMAIN|ENTERPRISE).*'\nRETURN attacker.name AS Attacker,\n       group.name AS CanAddMembersTo",
+      "variables": {},
+      "edge_types_used": [
+        "AddMember"
+      ],
+      "expected_results": "Principals who can add themselves to privileged groups",
+      "example_output": "IT_MANAGER@CORP.COM -[AddMember]-> IT_ADMINS@CORP.COM",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1098.002",
+      "tags": [
+        "privilege_escalation",
+        "AddMember",
+        "group_manipulation"
+      ]
+    },
+    {
+      "id": "privesc-owns",
+      "name": "Owns Relationships on Users/Groups",
+      "description": "Find principals who own other users or groups. Owner can grant themselves full control.",
+      "cypher": "MATCH (owner)-[:Owns]->(owned)\nWHERE owned.admincount = true\n   OR owned.name =~ '(?i).*(ADMIN|DOMAIN).*'\nRETURN owner.name AS Owner,\n       owned.name AS OwnedObject,\n       labels(owned) AS ObjectType",
+      "variables": {},
+      "edge_types_used": [
+        "Owns"
+      ],
+      "expected_results": "Owners of privileged objects who can take control",
+      "example_output": "ADMIN_CREATOR@CORP.COM -[Owns]-> IT_ADMINS@CORP.COM",
+      "next_steps": [
+        "privesc-writedacl"
+      ],
+      "attack_technique": "T1222.001",
+      "tags": [
+        "privilege_escalation",
+        "Owns",
+        "ownership"
+      ]
+    },
+    {
+      "id": "privesc-gpo-abuse",
+      "name": "GPO Abuse Paths",
+      "description": "Find users with write access to GPOs linked to computers. Can push malicious scripts via GPO.",
+      "cypher": "MATCH (u:User)-[r:GenericAll|GenericWrite|WriteProperty]->(g:GPO)\nWHERE NOT u.admincount = true\nRETURN u.name AS User,\n       g.name AS GPO,\n       type(r) AS Permission",
+      "variables": {},
+      "edge_types_used": [
+        "GenericAll",
+        "GenericWrite",
+        "WriteProperty"
+      ],
+      "expected_results": "Non-privileged users with GPO modification rights",
+      "example_output": "GPOMGR@CORP.COM -[GenericWrite]-> Default Domain Policy",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1484.001",
+      "tags": [
+        "privilege_escalation",
+        "GPO",
+        "policy_abuse"
+      ]
+    },
+    {
+      "id": "privesc-ou-control",
+      "name": "OU Control for Object Manipulation",
+      "description": "Find principals with GenericAll on OUs containing privileged objects. Can modify objects within the OU.",
+      "cypher": "MATCH (attacker)-[:GenericAll]->(ou:OU)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       ou.name AS ControlledOU",
+      "variables": {},
+      "edge_types_used": [
+        "GenericAll"
+      ],
+      "expected_results": "Non-privileged users with OU control",
+      "example_output": "HR_ADMIN@CORP.COM -[GenericAll]-> OU=IT_Users",
+      "next_steps": [
+        "privesc-genericall-highvalue"
+      ],
+      "tags": [
+        "privilege_escalation",
+        "OU",
+        "container_abuse"
+      ]
+    },
+    {
+      "id": "privesc-all-extended-rights",
+      "name": "AllExtendedRights Enumeration",
+      "description": "Find principals with AllExtendedRights on objects. Includes ForceChangePassword, Read LAPS, etc.",
+      "cypher": "MATCH (attacker)-[:AllExtendedRights]->(target)\nWHERE NOT attacker.admincount = true\n  AND (target.admincount = true OR target.name =~ '(?i).*(ADMIN|DOMAIN).*')\nRETURN attacker.name AS Attacker,\n       target.name AS Target,\n       labels(target) AS TargetType",
+      "variables": {},
+      "edge_types_used": [
+        "AllExtendedRights"
+      ],
+      "expected_results": "Non-privileged users with extended rights on privileged objects",
+      "example_output": "SERVICEMGR@CORP.COM -[AllExtendedRights]-> DC1.CORP.COM",
+      "next_steps": [
+        "privesc-force-change-password"
+      ],
+      "tags": [
+        "privilege_escalation",
+        "AllExtendedRights"
+      ]
+    },
+    {
+      "id": "privesc-read-laps",
+      "name": "Read LAPS Password Rights",
+      "description": "Find principals who can read LAPS passwords on computers. Direct local admin credential access.",
+      "cypher": "MATCH (n)-[:ReadLAPSPassword]->(c:Computer)\nWHERE NOT n.admincount = true\nRETURN n.name AS Principal,\n       labels(n) AS Type,\n       c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP",
+      "variables": {},
+      "edge_types_used": [
+        "ReadLAPSPassword"
+      ],
+      "expected_results": "Non-privileged principals who can read LAPS passwords",
+      "example_output": "HELPDESK@CORP.COM -[ReadLAPSPassword]-> CLIENT75.CORP.COM",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "privilege_escalation",
+        "LAPS",
+        "credential_access"
+      ]
+    },
+    {
+      "id": "privesc-domain-admins",
+      "name": "All Domain Admins",
+      "description": "List all members of Domain Admins group (including nested membership). Know your targets.",
+      "cypher": "MATCH (u:User)-[:MemberOf*1..]->(g:Group)\nWHERE g.name =~ '(?i).*DOMAIN ADMINS.*'\nRETURN DISTINCT u.name AS DomainAdmin,\n       u.enabled AS Enabled,\n       u.admincount AS AdminCount",
+      "variables": {},
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "All Domain Admin members for target identification",
+      "example_output": "ADMINISTRATOR@CORP.COM, JEFFADMIN@CORP.COM, MARIA@CORP.COM",
+      "next_steps": [
+        "privesc-shadow-admins",
+        "chain-credential-harvest"
+      ],
+      "tags": [
+        "enumeration",
+        "domain_admin"
+      ]
+    },
+    {
+      "id": "privesc-genericwrite-users",
+      "name": "GenericWrite on Users",
+      "description": "Find principals with GenericWrite on users. Can modify SPN for Kerberoasting or set logon script.",
+      "cypher": "MATCH (attacker)-[:GenericWrite]->(victim:User)\nWHERE victim.enabled = true\n  AND NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       victim.name AS Victim,\n       victim.admincount AS VictimIsPrivileged\nORDER BY victim.admincount DESC\nLIMIT 50",
+      "variables": {},
+      "edge_types_used": [
+        "GenericWrite"
+      ],
+      "expected_results": "Non-privileged users with GenericWrite on other users",
+      "example_output": "HELPDESK@CORP.COM -[GenericWrite]-> SQL_SERVICE@CORP.COM",
+      "next_steps": [
+        "quick-kerberoastable"
+      ],
+      "attack_technique": "T1134",
+      "tags": [
+        "privilege_escalation",
+        "GenericWrite",
+        "targeted_kerberoast"
+      ]
+    },
+    {
+      "id": "privesc-write-spn",
+      "name": "WriteSPN for Targeted Kerberoasting",
+      "description": "Find principals who can write SPNs on users. Allows setting an SPN on a privileged user for targeted Kerberoasting attack.",
+      "cypher": "MATCH (attacker)-[:WriteSPN]->(victim:User)\nWHERE NOT attacker.admincount = true\n  AND victim.enabled = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       victim.name AS Target,\n       victim.admincount AS TargetIsPrivileged\nORDER BY victim.admincount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "WriteSPN"
+      ],
+      "expected_results": "Non-privileged principals who can set SPNs for targeted Kerberoasting",
+      "example_output": "HELPDESK@CORP.COM -[WriteSPN]-> JEFFADMIN@CORP.COM (admincount=true)",
+      "next_steps": [
+        "quick-kerberoastable"
+      ],
+      "attack_technique": "T1558.003",
+      "tags": [
+        "privilege_escalation",
+        "WriteSPN",
+        "targeted_kerberoast",
+        "SPN_jacking"
+      ]
+    },
+    {
+      "id": "privesc-write-account-restrictions",
+      "name": "WriteAccountRestrictions for RBCD",
+      "description": "Find principals who can modify msDS-AllowedToActOnBehalfOfOtherIdentity. Enables Resource-Based Constrained Delegation attacks.",
+      "cypher": "MATCH (attacker)-[:WriteAccountRestrictions]->(c:Computer)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       c.name AS RBCDTarget,\n       c.bloodtrail_ip AS RBCDTargetIP",
+      "variables": {},
+      "edge_types_used": [
+        "WriteAccountRestrictions"
+      ],
+      "expected_results": "Non-privileged principals who can configure RBCD on computers",
+      "example_output": "IT_SUPPORT@CORP.COM -[WriteAccountRestrictions]-> WEB01.CORP.COM",
+      "next_steps": [
+        "delegation-rbcd-targets"
+      ],
+      "attack_technique": "T1550.003",
+      "tags": [
+        "privilege_escalation",
+        "RBCD",
+        "WriteAccountRestrictions",
+        "delegation"
+      ]
+    },
+    {
+      "id": "privesc-sync-laps",
+      "name": "SyncLAPSPassword Rights",
+      "description": "Find principals with SyncLAPSPassword rights. Can retrieve LAPS passwords via domain-wide synchronization.",
+      "cypher": "MATCH (n)-[:SyncLAPSPassword]->(c:Computer)\nWHERE NOT n.admincount = true\nRETURN n.name AS Principal,\n       labels(n) AS Type,\n       collect(c.name) AS Computers,\n       collect(c.bloodtrail_ip) AS ComputerIPs,\n       count(c) AS ComputerCount\nORDER BY ComputerCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "SyncLAPSPassword"
+      ],
+      "expected_results": "Non-privileged principals with LAPS sync access",
+      "example_output": "LAPS_READERS@CORP.COM -> [ALL WORKSTATIONS] (150 computers)",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1555",
+      "tags": [
+        "privilege_escalation",
+        "LAPS",
+        "credential_access"
+      ]
+    },
+    {
+      "id": "privesc-add-allowed-to-act",
+      "name": "AddAllowedToAct Rights",
+      "description": "Find principals with AddAllowedToAct permission. Can directly configure RBCD without full GenericWrite.",
+      "cypher": "MATCH (attacker)-[:AddAllowedToAct]->(c:Computer)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       c.name AS RBCDTarget,\n       c.bloodtrail_ip AS RBCDTargetIP",
+      "variables": {},
+      "edge_types_used": [
+        "AddAllowedToAct"
+      ],
+      "expected_results": "Principals with explicit AddAllowedToAct permission",
+      "example_output": "SVC_MANAGER@CORP.COM -[AddAllowedToAct]-> FILE01.CORP.COM",
+      "next_steps": [
+        "delegation-rbcd-targets"
+      ],
+      "attack_technique": "T1550.003",
+      "tags": [
+        "privilege_escalation",
+        "RBCD",
+        "AddAllowedToAct"
+      ]
+    },
+    {
+      "id": "privesc-dcsync-composite",
+      "name": "DCSync (Composite Check)",
+      "description": "Find principals with BOTH GetChanges AND GetChangesAll on the domain. These can perform DCSync to extract all password hashes.",
+      "cypher": "MATCH (n)-[:GetChanges]->(d:Domain)\nMATCH (n)-[:GetChangesAll]->(d)\nWHERE NOT n.admincount = true\nRETURN n.name AS DCSync_Principal,\n       labels(n) AS Type,\n       d.name AS Domain",
+      "variables": {},
+      "edge_types_used": [
+        "GetChanges",
+        "GetChangesAll"
+      ],
+      "expected_results": "Non-privileged principals with full DCSync rights",
+      "example_output": "EXCHANGE_SERVERS@CORP.COM -[DCSync]-> CORP.COM",
+      "next_steps": [],
+      "attack_technique": "T1003.006",
+      "tags": [
+        "privilege_escalation",
+        "DCSync",
+        "domain_compromise",
+        "critical"
+      ]
+    },
+    {
+      "id": "prereq-account-operators",
+      "name": "Check Account Operators Membership",
+      "description": "Check if user is member of Account Operators group (directly or nested). Account Operators can create users and add to non-protected groups.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[:MemberOf*1..]->(g:Group)\nWHERE g.name =~ '(?i)ACCOUNT OPERATORS@.*'\nRETURN u.name AS User,\n       g.name AS Group,\n       'Can create users and modify non-protected groups' AS Capability",
+      "variables": {
+        "USER": {
+          "description": "User to check (UPN format)",
+          "example": "SVC-ALFRESCO@HTB.LOCAL",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "User's Account Operators membership if present",
+      "example_output": "SVC-ALFRESCO@HTB.LOCAL -> ACCOUNT OPERATORS@HTB.LOCAL",
+      "purpose": "prerequisite_check",
+      "tags": [
+        "prerequisite",
+        "account_operators",
+        "privilege_check"
+      ]
+    },
+    {
+      "id": "prereq-exchange-writedacl",
+      "name": "Check Exchange WriteDACL on Domain",
+      "description": "Check if Exchange Windows Permissions group has WriteDACL on the domain. This is the prerequisite for the Exchange WriteDACL to DCSync attack chain.",
+      "cypher": "MATCH (g:Group)-[:WriteDacl]->(d:Domain)\nWHERE g.name =~ '(?i)EXCHANGE WINDOWS PERMISSIONS@.*'\nRETURN g.name AS ExchangeGroup,\n       d.name AS Domain,\n       'Can grant DCSync rights via WriteDACL' AS AttackPotential",
+      "variables": {},
+      "edge_types_used": [
+        "WriteDacl"
+      ],
+      "expected_results": "Exchange Windows Permissions group with WriteDACL on domain",
+      "example_output": "EXCHANGE WINDOWS PERMISSIONS@HTB.LOCAL -> HTB.LOCAL (WriteDacl)",
+      "purpose": "prerequisite_check",
+      "tags": [
+        "prerequisite",
+        "exchange",
+        "writedacl",
+        "dcsync_path"
+      ]
+    },
+    {
+      "id": "prereq-backup-operators",
+      "name": "Check Backup Operators Membership",
+      "description": "Check if user is member of Backup Operators. Can backup SAM/SYSTEM hives for offline credential extraction.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[:MemberOf*1..]->(g:Group)\nWHERE g.name =~ '(?i)BACKUP OPERATORS@.*'\nRETURN u.name AS User,\n       g.name AS Group,\n       'Can backup SAM/SYSTEM hives' AS Capability",
+      "variables": {
+        "USER": {
+          "description": "User to check (UPN format)",
+          "example": "BACKUP_SVC@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "User's Backup Operators membership if present",
+      "purpose": "prerequisite_check",
+      "tags": [
+        "prerequisite",
+        "backup_operators",
+        "privilege_check"
+      ]
+    },
+    {
+      "id": "prereq-server-operators",
+      "name": "Check Server Operators Membership",
+      "description": "Check if user is member of Server Operators. Can log on to DCs, manage services, and potentially escalate.",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[:MemberOf*1..]->(g:Group)\nWHERE g.name =~ '(?i)SERVER OPERATORS@.*'\nRETURN u.name AS User,\n       g.name AS Group,\n       'Can manage services on DCs' AS Capability",
+      "variables": {
+        "USER": {
+          "description": "User to check (UPN format)",
+          "example": "SVC_ADMIN@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "User's Server Operators membership if present",
+      "purpose": "prerequisite_check",
+      "tags": [
+        "prerequisite",
+        "server_operators",
+        "privilege_check"
+      ]
+    },
+    {
+      "id": "prereq-can-add-to-group",
+      "name": "Check AddMember to Specific Group",
+      "description": "Check if user can add members to a specific group (directly or via group membership).",
+      "cypher": "MATCH (u:User {name:'<USER>'})-[:AddMember|MemberOf*1..5]->(target:Group {name:'<TARGET_GROUP>'})\nRETURN u.name AS User,\n       target.name AS TargetGroup,\n       'Can add members to group' AS Capability",
+      "variables": {
+        "USER": {
+          "description": "User to check (UPN format)",
+          "example": "HELPDESK@CORP.COM",
+          "required": true
+        },
+        "TARGET_GROUP": {
+          "description": "Target group to check AddMember permission",
+          "example": "EXCHANGE WINDOWS PERMISSIONS@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AddMember",
+        "MemberOf"
+      ],
+      "expected_results": "User's ability to add members to target group",
+      "purpose": "prerequisite_check",
+      "tags": [
+        "prerequisite",
+        "addmember",
+        "group_modification"
+      ]
+    }
+  ]
+}

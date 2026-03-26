@@ -1,0 +1,199 @@
+{
+  "category": "attack_chains",
+  "description": "Complete attack path reconstruction queries. Multi-hop queries that trace full attack chains from owned user to Domain Admin, including credential harvest opportunities and path analysis.",
+  "queries": [
+    {
+      "id": "chain-owned-to-pivot-to-da",
+      "name": "Full Attack Path: Owned User -> Pivot -> DA",
+      "description": "Find complete attack paths from low-privilege owned user through pivot systems to Domain Admin. Reconstructs DCSync capstone-style attack chains.",
+      "cypher": "MATCH (lowpriv:User)-[:AdminTo]->(pivot:Computer)\nWHERE NOT lowpriv.admincount = true\n  AND lowpriv.enabled = true\n  AND NOT pivot.name STARTS WITH 'DC'\nOPTIONAL MATCH (pivot)<-[:AdminTo]-(dagroup:Group)\nWHERE dagroup.name =~ '(?i).*DOMAIN ADMINS.*'\nRETURN lowpriv.name AS OwnedUser,\n       pivot.name AS PivotMachine,\n       pivot.bloodtrail_ip AS PivotMachineIP,\n       CASE WHEN dagroup IS NOT NULL\n            THEN 'DA has admin here - MIMIKATZ TARGET'\n            ELSE 'Check for sessions' END AS Note",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Attack paths from non-privileged users to credential harvest opportunities",
+      "example_output": "MIKE@CORP.COM -> CLIENT75.CORP.COM -> 'DA has admin here - MIMIKATZ TARGET'",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "attack_technique": "T1078.002",
+      "tags": [
+        "attack_chain",
+        "pivot",
+        "credential_harvest"
+      ]
+    },
+    {
+      "id": "chain-shortest-to-da",
+      "name": "Shortest Path to Domain Admins",
+      "description": "Find shortest privilege escalation path from any enabled user to Domain Admins group.",
+      "cypher": "MATCH p=shortestPath((u:User {enabled:true})-[*1..5]->(g:Group))\nWHERE g.name =~ '(?i).*DOMAIN ADMINS.*'\n  AND NOT u.admincount = true\nRETURN u.name AS StartUser,\n       length(p) AS Hops,\n       [n IN nodes(p) | n.name] AS Path\nLIMIT 10",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "MemberOf",
+        "HasSession",
+        "GenericAll",
+        "WriteDacl"
+      ],
+      "expected_results": "Shortest paths from non-privileged users to DA with hop count",
+      "example_output": "PETE@CORP.COM (3 hops) -> [PETE, IT_USERS, IT_ADMINS, DOMAIN ADMINS]",
+      "next_steps": [
+        "chain-all-paths-to-da"
+      ],
+      "tags": [
+        "attack_chain",
+        "shortest_path",
+        "privilege_escalation"
+      ]
+    },
+    {
+      "id": "chain-all-paths-to-da",
+      "name": "All Paths to Domain Admin (Multi-Hop)",
+      "description": "Find all privilege escalation paths to Domain Admins using common attack edges. More comprehensive than shortest path.",
+      "cypher": "MATCH p=allShortestPaths(\n  (u:User {enabled:true})-[r:AdminTo|HasSession|MemberOf|ForceChangePassword|\n   GenericAll|GenericWrite|WriteOwner|WriteDacl|AddMember*1..6]->(da:Group)\n)\nWHERE da.name =~ '(?i).*DOMAIN ADMINS.*'\n  AND NOT u.admincount = true\nRETURN p LIMIT 25",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession",
+        "MemberOf",
+        "ForceChangePassword",
+        "GenericAll",
+        "GenericWrite",
+        "WriteOwner",
+        "WriteDacl",
+        "AddMember"
+      ],
+      "expected_results": "Multiple attack paths for alternative exploitation routes",
+      "example_output": "Graph showing 25 different paths to Domain Admins",
+      "next_steps": [],
+      "tags": [
+        "attack_chain",
+        "all_paths",
+        "comprehensive"
+      ]
+    },
+    {
+      "id": "chain-credential-harvest",
+      "name": "Credential Harvest Opportunities",
+      "description": "Find machines where you have admin AND Domain Admin has access. Prime targets for mimikatz credential dumping.",
+      "cypher": "MATCH (owned:User)-[:AdminTo]->(c:Computer)<-[:AdminTo]-(da:Group)\nWHERE NOT owned.admincount = true\n  AND da.name =~ '(?i).*DOMAIN ADMINS.*'\nRETURN owned.name AS OwnedUser,\n       c.name AS TargetMachine,\n       c.bloodtrail_ip AS TargetMachineIP,\n       'Run mimikatz - DA creds may be cached' AS Action",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo"
+      ],
+      "expected_results": "Machines for credential harvesting where DA has access",
+      "example_output": "MIKE@CORP.COM -> CLIENT75.CORP.COM -> 'Run mimikatz - DA creds may be cached'",
+      "next_steps": [
+        "lateral-sessions-on-computer",
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1003.001",
+      "tags": [
+        "attack_chain",
+        "credential_harvest",
+        "mimikatz"
+      ]
+    },
+    {
+      "id": "chain-path-through-computer",
+      "name": "Find Paths Through Specific Computer",
+      "description": "Find all attack paths that traverse a specific computer. Useful when you've identified a high-value pivot.",
+      "cypher": "MATCH p=shortestPath((u:User {owned:true})-[*1..5]->(c:Computer {name:'<COMPUTER>'}))\nRETURN [n IN nodes(p) | n.name] AS Path,\n       [r IN relationships(p) | type(r)] AS EdgeTypes",
+      "variables": {
+        "COMPUTER": {
+          "description": "Target computer to route through",
+          "example": "CLIENT75.CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession",
+        "MemberOf",
+        "GenericAll"
+      ],
+      "expected_results": "Paths from owned users to specific computer",
+      "example_output": "[PETE, MIKE, CLIENT75.CORP.COM] via [MemberOf, AdminTo]",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "attack_chain",
+        "targeted_path"
+      ]
+    },
+    {
+      "id": "chain-path-between-users",
+      "name": "Shortest Path Between Two Users",
+      "description": "Find shortest path between two specific users. Useful for targeted privilege escalation.",
+      "cypher": "MATCH p=shortestPath(\n  (u1:User {name:'<SOURCE_USER>'})-[*1..10]->(u2:User {name:'<TARGET_USER>'})\n)\nRETURN [n IN nodes(p) | n.name] AS Path,\n       [r IN relationships(p) | type(r)] AS EdgeTypes,\n       length(p) AS Hops",
+      "variables": {
+        "SOURCE_USER": {
+          "description": "Starting user (owned)",
+          "example": "PETE@CORP.COM",
+          "required": true
+        },
+        "TARGET_USER": {
+          "description": "Target user to reach",
+          "example": "ADMINISTRATOR@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession",
+        "MemberOf",
+        "GenericAll",
+        "ForceChangePassword"
+      ],
+      "expected_results": "Direct path between two specific users",
+      "example_output": "[PETE, CLIENT75, MARIA, ADMINISTRATOR] via [AdminTo, HasSession, MemberOf]",
+      "next_steps": [],
+      "tags": [
+        "attack_chain",
+        "user_to_user"
+      ]
+    },
+    {
+      "id": "chain-to-high-value",
+      "name": "Path to High-Value Targets",
+      "description": "Find paths from owned users to all high-value targets (marked in BloodHound).",
+      "cypher": "MATCH p=shortestPath(\n  (u:User {owned:true})-[*1..5]->(target {highvalue:true})\n)\nRETURN u.name AS StartUser,\n       target.name AS HighValueTarget,\n       labels(target) AS TargetType,\n       length(p) AS Hops\nORDER BY Hops ASC\nLIMIT 20",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession",
+        "MemberOf",
+        "GenericAll"
+      ],
+      "expected_results": "Paths to BloodHound-marked high-value targets",
+      "example_output": "MIKE@CORP.COM -> DC1.CORP.COM (2 hops)",
+      "next_steps": [
+        "lateral-sessions-on-computer"
+      ],
+      "tags": [
+        "attack_chain",
+        "high_value"
+      ]
+    },
+    {
+      "id": "chain-circular-groups",
+      "name": "Circular Group Memberships",
+      "description": "Find circular group membership chains. Can indicate misconfigurations or unintended privilege inheritance.",
+      "cypher": "MATCH p=(g:Group)-[:MemberOf*1..5]->(g)\nRETURN [n IN nodes(p) | n.name] AS CircularChain,\n       length(p) AS ChainLength",
+      "variables": {},
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "Groups with circular membership (potential misconfiguration)",
+      "example_output": "[IT_ADMINS, SERVER_ADMINS, IT_ADMINS] (circular)",
+      "next_steps": [],
+      "tags": [
+        "attack_chain",
+        "misconfiguration",
+        "circular"
+      ]
+    }
+  ]
+}

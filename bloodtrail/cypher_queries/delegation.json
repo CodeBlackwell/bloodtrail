@@ -1,0 +1,211 @@
+{
+  "category": "delegation",
+  "description": "Kerberos delegation abuse queries. Resource-Based Constrained Delegation (RBCD), constrained delegation, and unconstrained delegation attacks for lateral movement and privilege escalation.",
+  "queries": [
+    {
+      "id": "delegation-rbcd-targets",
+      "name": "RBCD Attack Targets (AllowedToAct)",
+      "description": "Find computers configured for Resource-Based Constrained Delegation. These can be attacked if you control a principal in the msDS-AllowedToActOnBehalfOfOtherIdentity attribute.",
+      "cypher": "MATCH (source)-[:AllowedToAct]->(target:Computer)\nRETURN target.name AS RBCDTarget,\n       target.bloodtrail_ip AS RBCDTargetIP,\n       collect(source.name) AS AllowedPrincipals,\n       count(source) AS PrincipalCount\nORDER BY PrincipalCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AllowedToAct"
+      ],
+      "expected_results": "Computers with RBCD configured and their allowed principals",
+      "example_output": "WEB01.CORP.COM <- [SVC_WEB@CORP.COM, IIS_POOL@CORP.COM]",
+      "next_steps": [
+        "delegation-rbcd-writers"
+      ],
+      "attack_technique": "T1550.003",
+      "tags": [
+        "delegation",
+        "RBCD",
+        "lateral_movement"
+      ]
+    },
+    {
+      "id": "delegation-rbcd-writers",
+      "name": "Principals Who Can Write RBCD",
+      "description": "Find principals with WriteAccountRestrictions or GenericAll/GenericWrite on computers. These can configure RBCD to compromise the target computer.",
+      "cypher": "MATCH (attacker)-[r:WriteAccountRestrictions|GenericAll|GenericWrite]->(c:Computer)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       type(r) AS Permission,\n       c.name AS TargetComputer,\n       c.bloodtrail_ip AS TargetComputerIP\nORDER BY c.name",
+      "variables": {},
+      "edge_types_used": [
+        "WriteAccountRestrictions",
+        "GenericAll",
+        "GenericWrite"
+      ],
+      "expected_results": "Non-privileged principals who can write RBCD on computers",
+      "example_output": "HELPDESK@CORP.COM -[GenericWrite]-> WEB01.CORP.COM",
+      "next_steps": [
+        "delegation-rbcd-targets"
+      ],
+      "attack_technique": "T1550.003",
+      "tags": [
+        "delegation",
+        "RBCD",
+        "ACL_abuse"
+      ]
+    },
+    {
+      "id": "delegation-constrained-abuse",
+      "name": "Constrained Delegation Abuse Targets",
+      "description": "Find principals with constrained delegation configured. If compromised, can use S4U2Self/S4U2Proxy to impersonate any user to their delegation targets.",
+      "cypher": "MATCH (source)-[:AllowedToDelegate]->(target)\nRETURN source.name AS DelegatingPrincipal,\n       labels(source) AS PrincipalType,\n       collect(target.name) AS DelegationTargets,\n       count(target) AS TargetCount\nORDER BY TargetCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AllowedToDelegate"
+      ],
+      "expected_results": "Principals with constrained delegation and their targets",
+      "example_output": "IIS_SERVICE@CORP.COM -> [cifs/DC1.CORP.COM, http/WEB01.CORP.COM]",
+      "next_steps": [
+        "delegation-constrained-to-dc"
+      ],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "delegation",
+        "constrained_delegation",
+        "S4U"
+      ]
+    },
+    {
+      "id": "delegation-constrained-to-dc",
+      "name": "Constrained Delegation to Domain Controllers",
+      "description": "Find principals that can delegate to Domain Controllers. Compromising these enables direct DC access via impersonation.",
+      "cypher": "MATCH (source)-[:AllowedToDelegate]->(dc:Computer)\nWHERE dc.name STARTS WITH 'DC'\n   OR dc.distinguishedname CONTAINS 'OU=Domain Controllers'\nRETURN source.name AS DelegatingPrincipal,\n       labels(source) AS PrincipalType,\n       dc.name AS DomainController,\n       dc.bloodtrail_ip AS DomainControllerIP\nORDER BY source.name",
+      "variables": {},
+      "edge_types_used": [
+        "AllowedToDelegate"
+      ],
+      "expected_results": "Principals with delegation rights to DCs",
+      "example_output": "SQL_SERVICE@CORP.COM -> DC1.CORP.COM",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "delegation",
+        "constrained_delegation",
+        "domain_compromise"
+      ]
+    },
+    {
+      "id": "delegation-unconstrained",
+      "name": "Unconstrained Delegation Systems",
+      "description": "Find computers with unconstrained delegation enabled. Can capture TGTs from authenticating users via coercion attacks (PetitPotam, PrinterBug).",
+      "cypher": "MATCH (c:Computer)\nWHERE c.unconstraineddelegation = true\n  AND c.enabled = true\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.operatingsystem AS OS,\n       CASE WHEN c.name STARTS WITH 'DC' THEN 'Domain Controller' ELSE 'Member Server' END AS ServerType\nORDER BY ServerType, c.name",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Computers with unconstrained delegation (TGT capture targets)",
+      "example_output": "DC1.CORP.COM (Windows Server 2019, Domain Controller)",
+      "next_steps": [
+        "delegation-unconstrained-nondc"
+      ],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "delegation",
+        "unconstrained_delegation",
+        "coercion"
+      ]
+    },
+    {
+      "id": "delegation-unconstrained-nondc",
+      "name": "Non-DC Unconstrained Delegation",
+      "description": "Find non-DC computers with unconstrained delegation. These are prime targets for coercion attacks as they're typically less monitored than DCs.",
+      "cypher": "MATCH (c:Computer)\nWHERE c.unconstraineddelegation = true\n  AND c.enabled = true\n  AND NOT c.name STARTS WITH 'DC'\nRETURN c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.operatingsystem AS OS,\n       c.description AS Description",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Member servers with unconstrained delegation",
+      "example_output": "IIS_SERVER.CORP.COM (Windows Server 2019)",
+      "next_steps": [],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "delegation",
+        "unconstrained_delegation",
+        "coercion",
+        "quick_win"
+      ]
+    },
+    {
+      "id": "delegation-user-unconstrained",
+      "name": "Users with Unconstrained Delegation",
+      "description": "Find user accounts trusted for unconstrained delegation. Service accounts with this setting can capture TGTs.",
+      "cypher": "MATCH (u:User)\nWHERE u.trustedtodelegateforanyclient = true\n  AND u.enabled = true\nRETURN u.name AS User,\n       u.description AS Description,\n       u.admincount AS IsPrivileged",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "User accounts with unconstrained delegation",
+      "example_output": "SVC_EXCHANGE@CORP.COM (trustedtodelegateforanyclient=true)",
+      "next_steps": [],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "delegation",
+        "unconstrained_delegation",
+        "service_account"
+      ]
+    },
+    {
+      "id": "delegation-rbcd-chain",
+      "name": "RBCD Attack Chain (Write -> Impersonate)",
+      "description": "Find complete RBCD attack chains: principals who can write RBCD on computers that have sessions from privileged users.",
+      "cypher": "MATCH (attacker)-[r:WriteAccountRestrictions|GenericAll|GenericWrite]->(c:Computer)<-[:HasSession]-(priv:User {admincount:true})\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       type(r) AS Permission,\n       c.name AS TargetComputer,\n       c.bloodtrail_ip AS TargetComputerIP,\n       collect(priv.name) AS PrivilegedSessions",
+      "variables": {},
+      "edge_types_used": [
+        "WriteAccountRestrictions",
+        "GenericAll",
+        "GenericWrite",
+        "HasSession"
+      ],
+      "expected_results": "Full RBCD attack paths to credential harvest",
+      "example_output": "HELPDESK@CORP.COM -[GenericWrite]-> WEB01.CORP.COM <- [DOMAIN_ADMIN@CORP.COM]",
+      "next_steps": [
+        "privesc-dcsync-rights"
+      ],
+      "attack_technique": "T1550.003",
+      "tags": [
+        "delegation",
+        "RBCD",
+        "attack_chain",
+        "credential_harvest"
+      ]
+    },
+    {
+      "id": "delegation-add-allowed-to-act",
+      "name": "AddAllowedToAct Permissions",
+      "description": "Find principals with explicit AddAllowedToAct permission. Can add any computer to RBCD without full write access.",
+      "cypher": "MATCH (attacker)-[:AddAllowedToAct]->(c:Computer)\nWHERE NOT attacker.admincount = true\nRETURN attacker.name AS Attacker,\n       labels(attacker) AS AttackerType,\n       c.name AS TargetComputer,\n       c.bloodtrail_ip AS TargetComputerIP",
+      "variables": {},
+      "edge_types_used": [
+        "AddAllowedToAct"
+      ],
+      "expected_results": "Principals with AddAllowedToAct permission",
+      "example_output": "IT_SUPPORT@CORP.COM -[AddAllowedToAct]-> FILE01.CORP.COM",
+      "next_steps": [
+        "delegation-rbcd-targets"
+      ],
+      "attack_technique": "T1550.003",
+      "tags": [
+        "delegation",
+        "RBCD",
+        "ACL_abuse"
+      ]
+    },
+    {
+      "id": "delegation-protocol-transition",
+      "name": "Protocol Transition Enabled",
+      "description": "Find principals with TrustedToAuthForDelegation (protocol transition). Can obtain service tickets without user authentication - powerful for S4U2Self attacks.",
+      "cypher": "MATCH (n)\nWHERE n.trustedtoauth = true\n  AND n.enabled = true\nRETURN n.name AS Principal,\n       labels(n) AS Type,\n       n.allowedtodelegate AS DelegationTargets",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Principals with protocol transition enabled",
+      "example_output": "SVC_IIS@CORP.COM (trustedtoauth=true) -> [cifs/dc1.corp.com]",
+      "next_steps": [
+        "delegation-constrained-abuse"
+      ],
+      "attack_technique": "T1558.001",
+      "tags": [
+        "delegation",
+        "protocol_transition",
+        "S4U2Self"
+      ]
+    }
+  ]
+}

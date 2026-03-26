@@ -1,0 +1,264 @@
+{
+  "category": "pwned_tracking",
+  "description": "Queries for tracking pwned users, their access paths, and follow-up attack opportunities. Leverages the pwned property set by bloodtrail --pwn.",
+  "queries": [
+    {
+      "id": "pwned-list-all",
+      "name": "All Pwned Users",
+      "description": "List all users marked as pwned with their credential type and compromise timestamp.",
+      "cypher": "MATCH (u:User)\nWHERE u.pwned = true\nRETURN u.name AS User,\n       u.pwned_cred_type AS CredType,\n       u.pwned_source_machine AS SourceMachine,\n       u.pwned_at AS PwnedAt,\n       u.pwned_notes AS Notes\nORDER BY u.pwned_at DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "All users marked as compromised",
+      "example_output": "PETE@CORP.COM (password, from WEB01, 2024-01-15)",
+      "next_steps": [
+        "pwned-machine-access",
+        "pwned-escalation-paths"
+      ],
+      "tags": [
+        "pwned",
+        "tracking",
+        "operational"
+      ]
+    },
+    {
+      "id": "pwned-machine-access",
+      "name": "Machine Access from Pwned Users",
+      "description": "Show all machines pwned users can access via AdminTo, CanRDP, CanPSRemote, or ExecuteDCOM edges.",
+      "cypher": "MATCH (u:User)-[r:AdminTo|CanRDP|CanPSRemote|ExecuteDCOM]->(c:Computer)\nWHERE u.pwned = true\nRETURN u.name AS User,\n       u.pwned_cred_type AS CredType,\n       type(r) AS AccessType,\n       c.name AS Computer,\n       c.bloodtrail_ip AS ComputerIP,\n       c.operatingsystem AS OS\nORDER BY u.name, type(r)",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "CanRDP",
+        "CanPSRemote",
+        "ExecuteDCOM"
+      ],
+      "expected_results": "Machines accessible by pwned users",
+      "example_output": "PETE@CORP.COM -> AdminTo -> WEB01.CORP.COM",
+      "next_steps": [
+        "pwned-sessions-from-machines",
+        "pwned-cred-harvest-targets"
+      ],
+      "tags": [
+        "pwned",
+        "lateral_movement",
+        "access"
+      ]
+    },
+    {
+      "id": "pwned-sessions-from-machines",
+      "name": "Sessions on Accessible Machines",
+      "description": "Find active sessions on machines pwned users can access. Priority targets for credential theft.",
+      "cypher": "MATCH (pwned:User)-[:AdminTo]->(c:Computer)<-[:HasSession]-(victim:User)\nWHERE pwned.pwned = true\n  AND NOT victim.name = pwned.name\n  AND victim.enabled = true\nRETURN pwned.name AS PwnedUser,\n       c.name AS TargetMachine,\n       c.bloodtrail_ip AS TargetMachineIP,\n       victim.name AS VictimSession,\n       victim.admincount AS VictimIsPrivileged\nORDER BY victim.admincount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession"
+      ],
+      "expected_results": "Active sessions on machines where we have admin (credential theft targets)",
+      "example_output": "PETE@CORP.COM -> WEB01 -> ADMIN@CORP.COM (admincount=true)",
+      "next_steps": [
+        "pwned-escalation-paths"
+      ],
+      "attack_technique": "T1003",
+      "tags": [
+        "pwned",
+        "credential_access",
+        "sessions"
+      ]
+    },
+    {
+      "id": "pwned-escalation-paths",
+      "name": "Escalation Paths from Pwned Users",
+      "description": "Find shortest paths from pwned users to Domain Admins group.",
+      "cypher": "MATCH (pwned:User)\nWHERE pwned.pwned = true\nMATCH (da:Group)\nWHERE da.name =~ '(?i).*DOMAIN ADMINS.*'\nMATCH p = shortestPath((pwned)-[*1..6]->(da))\nRETURN pwned.name AS PwnedUser,\n       pwned.pwned_cred_type AS CredType,\n       [n IN nodes(p) | n.name] AS Path,\n       length(p) AS PathLength\nORDER BY PathLength",
+      "variables": {},
+      "edge_types_used": [
+        "*"
+      ],
+      "expected_results": "Shortest paths from pwned users to Domain Admins",
+      "example_output": "PETE@CORP.COM -> WEB_ADMINS -> ADMIN -> DOMAIN ADMINS (3 hops)",
+      "next_steps": [],
+      "attack_technique": "T1078.002",
+      "tags": [
+        "pwned",
+        "privilege_escalation",
+        "attack_path"
+      ]
+    },
+    {
+      "id": "pwned-cred-harvest-targets",
+      "name": "Credential Harvest Targets",
+      "description": "Find high-value users with sessions on machines pwned users can access. Priority targets for credential harvesting.",
+      "cypher": "MATCH (pwned:User)-[:AdminTo]->(c:Computer)<-[:HasSession]-(victim:User)\nWHERE pwned.pwned = true\n  AND victim.admincount = true\n  AND NOT victim.name = pwned.name\nRETURN pwned.name AS Attacker,\n       c.name AS HarvestFrom,\n       c.bloodtrail_ip AS HarvestFromIP,\n       victim.name AS HighValueTarget,\n       victim.description AS Description\nORDER BY victim.admincount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession"
+      ],
+      "expected_results": "Privileged users whose credentials can be harvested",
+      "example_output": "PETE -> WEB01 -> SQL_ADMIN@CORP.COM (admincount=true)",
+      "next_steps": [
+        "pwned-escalation-paths"
+      ],
+      "attack_technique": "T1003",
+      "tags": [
+        "pwned",
+        "credential_access",
+        "high_value"
+      ]
+    },
+    {
+      "id": "pwned-dcsync-check",
+      "name": "DCSync Rights from Pwned Users",
+      "description": "Check if any pwned user has DCSync rights (GetChanges + GetChangesAll on domain).",
+      "cypher": "MATCH (pwned:User)\nWHERE pwned.pwned = true\nMATCH (d:Domain)\nOPTIONAL MATCH (pwned)-[:GetChanges]->(d)\nOPTIONAL MATCH (pwned)-[:GetChangesAll]->(d)\nWITH pwned, d,\n     EXISTS((pwned)-[:GetChanges]->(d)) AS hasGetChanges,\n     EXISTS((pwned)-[:GetChangesAll]->(d)) AS hasGetChangesAll\nWHERE hasGetChanges OR hasGetChangesAll\nRETURN pwned.name AS User,\n       pwned.pwned_cred_type AS CredType,\n       d.name AS Domain,\n       hasGetChanges AS GetChanges,\n       hasGetChangesAll AS GetChangesAll,\n       CASE WHEN hasGetChanges AND hasGetChangesAll THEN 'FULL DCSync' ELSE 'PARTIAL' END AS Status",
+      "variables": {},
+      "edge_types_used": [
+        "GetChanges",
+        "GetChangesAll"
+      ],
+      "expected_results": "Pwned users with DCSync capabilities",
+      "example_output": "BACKUP_SVC@CORP.COM -> CORP.COM (FULL DCSync)",
+      "next_steps": [],
+      "attack_technique": "T1003.006",
+      "tags": [
+        "pwned",
+        "DCSync",
+        "domain_compromise"
+      ]
+    },
+    {
+      "id": "pwned-group-memberships",
+      "name": "Group Memberships of Pwned Users",
+      "description": "Show all group memberships of pwned users to identify inherited privileges.",
+      "cypher": "MATCH (pwned:User)-[:MemberOf*1..3]->(g:Group)\nWHERE pwned.pwned = true\nRETURN pwned.name AS User,\n       pwned.pwned_cred_type AS CredType,\n       collect(DISTINCT g.name) AS Groups,\n       count(DISTINCT g) AS GroupCount\nORDER BY GroupCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "MemberOf"
+      ],
+      "expected_results": "Groups containing pwned users",
+      "example_output": "PETE@CORP.COM -> [Domain Users, WEB_ADMINS, IT_SUPPORT] (3 groups)",
+      "next_steps": [
+        "pwned-machine-access"
+      ],
+      "tags": [
+        "pwned",
+        "enumeration",
+        "groups"
+      ]
+    },
+    {
+      "id": "pwned-acl-abuse",
+      "name": "ACL Abuse from Pwned Users",
+      "description": "Find ACL-based attack paths from pwned users (GenericAll, GenericWrite, WriteDacl, etc.).",
+      "cypher": "MATCH (pwned:User)-[r:GenericAll|GenericWrite|WriteDacl|WriteOwner|Owns|ForceChangePassword]->(target)\nWHERE pwned.pwned = true\nRETURN pwned.name AS PwnedUser,\n       type(r) AS ACLRight,\n       labels(target) AS TargetType,\n       target.name AS Target,\n       target.admincount AS TargetIsPrivileged\nORDER BY target.admincount DESC, type(r)",
+      "variables": {},
+      "edge_types_used": [
+        "GenericAll",
+        "GenericWrite",
+        "WriteDacl",
+        "WriteOwner",
+        "Owns",
+        "ForceChangePassword"
+      ],
+      "expected_results": "ACL-based attack paths from pwned users",
+      "example_output": "PETE -> GenericAll -> SQL_ADMIN@CORP.COM (admincount=true)",
+      "next_steps": [
+        "pwned-escalation-paths"
+      ],
+      "attack_technique": "T1222.001",
+      "tags": [
+        "pwned",
+        "ACL",
+        "privilege_escalation"
+      ]
+    },
+    {
+      "id": "pwned-by-cred-type",
+      "name": "Pwned Users by Credential Type",
+      "description": "Group pwned users by credential type for attack planning.",
+      "cypher": "MATCH (u:User)\nWHERE u.pwned = true\nRETURN u.pwned_cred_type AS CredType,\n       collect(u.name) AS Users,\n       count(u) AS UserCount\nORDER BY UserCount DESC",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Pwned users grouped by credential type",
+      "example_output": "password -> [PETE, MIKE] (2), ntlm-hash -> [ADMIN] (1)",
+      "next_steps": [
+        "pwned-machine-access"
+      ],
+      "tags": [
+        "pwned",
+        "operational",
+        "planning"
+      ]
+    },
+    {
+      "id": "pwned-unpwned-comparison",
+      "name": "Coverage - Pwned vs Unpwned Users",
+      "description": "Show pwned coverage statistics for attack planning.",
+      "cypher": "MATCH (u:User)\nWHERE u.enabled = true\nWITH count(u) AS totalUsers,\n     sum(CASE WHEN u.pwned = true THEN 1 ELSE 0 END) AS pwnedUsers\nRETURN totalUsers AS TotalEnabled,\n       pwnedUsers AS Pwned,\n       totalUsers - pwnedUsers AS NotPwned,\n       round(100.0 * pwnedUsers / totalUsers, 1) AS PwnedPercent",
+      "variables": {},
+      "edge_types_used": [],
+      "expected_results": "Statistics on pwned user coverage",
+      "example_output": "Total: 150, Pwned: 5, NotPwned: 145, Coverage: 3.3%",
+      "next_steps": [
+        "pwned-escalation-paths"
+      ],
+      "tags": [
+        "pwned",
+        "operational",
+        "statistics"
+      ]
+    },
+    {
+      "id": "pwned-user-detail",
+      "name": "Pwned User Details",
+      "description": "Get detailed information about a specific pwned user.",
+      "cypher": "MATCH (u:User {name: $USER})\nWHERE u.pwned = true\nOPTIONAL MATCH (u)-[access:AdminTo|CanRDP|CanPSRemote|ExecuteDCOM]->(c:Computer)\nOPTIONAL MATCH (u)-[:MemberOf*1..2]->(g:Group)\nRETURN u.name AS User,\n       u.pwned_cred_type AS CredType,\n       u.pwned_cred_value AS CredValue,\n       u.pwned_source_machine AS SourceMachine,\n       u.pwned_at AS PwnedAt,\n       u.pwned_notes AS Notes,\n       u.admincount AS IsPrivileged,\n       collect(DISTINCT {type: type(access), target: c.name}) AS MachineAccess,\n       collect(DISTINCT g.name) AS Groups",
+      "variables": {
+        "USER": {
+          "description": "User principal name (e.g., PETE@CORP.COM)",
+          "example": "PETE@CORP.COM",
+          "required": true
+        }
+      },
+      "edge_types_used": [
+        "AdminTo",
+        "CanRDP",
+        "CanPSRemote",
+        "ExecuteDCOM",
+        "MemberOf"
+      ],
+      "expected_results": "Detailed information about a specific pwned user",
+      "example_output": "PETE@CORP.COM: password, from WEB01, groups: [WEB_ADMINS], access: [AdminTo->WEB01]",
+      "next_steps": [
+        "pwned-escalation-paths"
+      ],
+      "tags": [
+        "pwned",
+        "detail",
+        "operational"
+      ]
+    },
+    {
+      "id": "pwned-lateral-targets",
+      "name": "Next Lateral Movement Targets",
+      "description": "Find computers accessible by pwned users that have sessions from non-pwned users (lateral movement opportunities).",
+      "cypher": "MATCH (pwned:User)-[:AdminTo]->(c:Computer)<-[:HasSession]-(notPwned:User)\nWHERE pwned.pwned = true\n  AND (notPwned.pwned IS NULL OR notPwned.pwned = false)\n  AND notPwned.enabled = true\nRETURN c.name AS TargetMachine,\n       c.bloodtrail_ip AS TargetMachineIP,\n       c.operatingsystem AS OS,\n       collect(DISTINCT pwned.name) AS PwnedWithAccess,\n       collect(DISTINCT notPwned.name) AS NewTargetUsers,\n       count(DISTINCT notPwned) AS NewTargetCount\nORDER BY NewTargetCount DESC",
+      "variables": {},
+      "edge_types_used": [
+        "AdminTo",
+        "HasSession"
+      ],
+      "expected_results": "Machines to pivot through for new user compromises",
+      "example_output": "WEB01 -> [PETE has admin] -> [MIKE, DAVE not pwned] (2 new targets)",
+      "next_steps": [],
+      "attack_technique": "T1021",
+      "tags": [
+        "pwned",
+        "lateral_movement",
+        "planning"
+      ]
+    }
+  ]
+}

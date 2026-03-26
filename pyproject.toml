@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bloodtrail"
+version = "0.1.0"
+description = "BloodHound enhancement toolkit for Active Directory attack path discovery"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    {name = "CodeBlackwell"},
+]
+keywords = ["security", "active-directory", "bloodhound", "pentesting", "attack-paths"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "neo4j>=5.15.0",
+    "requests>=2.25.0",
+    "beautifulsoup4>=4.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+collect = [
+    "bloodhound>=1.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/CodeBlackwell/bloodtrail"
+Repository = "https://github.com/CodeBlackwell/bloodtrail.git"
+Issues = "https://github.com/CodeBlackwell/bloodtrail/issues"
+
+[project.scripts]
+bloodtrail = "bloodtrail.cli:main"
+
+[tool.setuptools]
+packages = ["bloodtrail"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.md", "*.txt", "*.yaml", "*.cypher"]
+
+[tool.pytest.ini_options]
+testpaths = ["bloodtrail/tests"]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests requiring external services",
+]

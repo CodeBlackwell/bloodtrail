@@ -11,7 +11,7 @@ const BloodTrailEnhance = (() => {
   const esc = (s) => BloodTrailGraph.esc(s);
 
   const COLORS = {
-    'white-hot': { thermal: '#ff6b2b', peak: '#fff4e0', cold: '#2266aa', quickWin: '#ffcc00' },
+    'white-hot': { thermal: '#ff5a1a', peak: '#fffefa', cold: '#2070cc', quickWin: '#ffd630' },
     'black-hot': { thermal: '#8b2500', peak: '#1a0800', cold: '#5588bb', quickWin: '#886600' },
   };
 

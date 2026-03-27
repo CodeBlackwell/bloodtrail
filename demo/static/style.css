@@ -2,42 +2,42 @@
 
 /* White-Hot (dark mode) — default */
 body.white-hot {
-  --void: #0c0c10;
-  --surface: #12121a;
-  --surface-hover: #1a1a24;
-  --text: #d8dce8;
-  --text-secondary: #6a7090;
-  --text-faint: #353848;
-  --thermal: #ff6b2b;
-  --thermal-22: rgba(255,107,43,0.13);
-  --thermal-33: rgba(255,107,43,0.2);
-  --thermal-66: rgba(255,107,43,0.4);
-  --white-hot: #fff4e0;
-  --warm: #8b3a10;
-  --residual: rgba(255,107,43,0.09);
-  --quick-win: #ffcc00;
-  --quick-win-66: rgba(255,204,0,0.4);
-  --node-da: #fff4e0;
-  --node-user: #ff8c42;
-  --node-computer: #4488cc;
-  --node-group: #7868a8;
-  --node-safe: #252830;
-  --chain-cold: #2266aa;
-  --chain-warm: #ff8c42;
-  --chain-hot: #ff6b2b;
-  --chain-peak: #fff4e0;
-  --edge-cold: #2a2a36;
-  --edge-access: #4488cc;
-  --edge-acl: #cc5544;
-  --edge-cred: #44aa66;
-  --edge-deleg: #aa66cc;
-  --edge-dcsync: #ff4444;
-  --edge-coerce: #ff8800;
-  --edge-trust: #44ccaa;
-  --edge-member: #353848;
-  --arrow-fill: #6a7090;
-  --arrow-fill-hot: #ff6b2b;
-  --scanline: rgba(255,107,43,0.008);
+  --void: #08080e;
+  --surface: #0e0e18;
+  --surface-hover: #161622;
+  --text: #e2e6f2;
+  --text-secondary: #6e7698;
+  --text-faint: #303450;
+  --thermal: #ff5a1a;
+  --thermal-22: rgba(255,90,26,0.13);
+  --thermal-33: rgba(255,90,26,0.2);
+  --thermal-66: rgba(255,90,26,0.4);
+  --white-hot: #fffefa;
+  --warm: #a04010;
+  --residual: rgba(255,90,26,0.09);
+  --quick-win: #ffd630;
+  --quick-win-66: rgba(255,214,48,0.4);
+  --node-da: #fffefa;
+  --node-user: #ff6e3a;
+  --node-computer: #4ca6f0;
+  --node-group: #9a7cf2;
+  --node-safe: #1a1c28;
+  --chain-cold: #2070cc;
+  --chain-warm: #ff6e3a;
+  --chain-hot: #ff5a1a;
+  --chain-peak: #fffefa;
+  --edge-cold: #22243a;
+  --edge-access: #4ca6f0;
+  --edge-acl: #e85040;
+  --edge-cred: #50c060;
+  --edge-deleg: #b060e0;
+  --edge-dcsync: #ff2040;
+  --edge-coerce: #ff8c00;
+  --edge-trust: #30ccaa;
+  --edge-member: #303450;
+  --arrow-fill: #6e7698;
+  --arrow-fill-hot: #ff5a1a;
+  --scanline: rgba(255,90,26,0.006);
 }
 
 /* Black-Hot (light mode) */
@@ -191,8 +191,8 @@ header {
 
 /* White-Hot button: always its theme — dark bg, bright orange text */
 .polarity-wh {
-  background: #0c0c10;
-  color: #ff6b2b;
+  background: #08080e;
+  color: #ff5a1a;
   opacity: 0.35;
 }
 .polarity-wh.active {
@@ -274,14 +274,14 @@ header {
 
 #right-panel {
   border-color: var(--thermal-33);
-  box-shadow: 0 0 30px rgba(255,107,43,0.05);
+  box-shadow: 0 0 30px rgba(255,90,26,0.06);
 }
 #right-panel .panel-label { color: var(--thermal); }
 
 .divider {
   width: 3px;
   background: var(--edge-cold);
-  box-shadow: 2px 0 12px rgba(255,107,43,0.06);
+  box-shadow: 2px 0 12px rgba(255,90,26,0.06);
   flex-shrink: 0;
 }
 
@@ -514,7 +514,12 @@ header {
 }
 
 .chain-item:hover { background: var(--surface-hover); }
-.chain-item.active { background: var(--residual); }
+.chain-item.active {
+  background: var(--thermal-22);
+  border-left: 2px solid var(--thermal);
+  padding-left: calc(0.75rem - 2px);
+}
+.chain-item.active .chain-name { color: var(--white-hot); }
 
 .chain-name {
   font-family: 'JetBrains Mono', monospace;

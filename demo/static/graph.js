@@ -135,7 +135,7 @@ const BloodTrailGraph = (() => {
         .attr('class', enhanced ? 'node-label visible' : 'node-label visible')
         .attr('dy', d => {
           const s = Math.sqrt(nodeSize(d, enhanced)) / 2;
-          return -(s + 4);
+          return -(s + 6);
         })
         .attr('text-anchor', 'middle')
         .text(d => shortName(d.name));
@@ -156,6 +156,7 @@ const BloodTrailGraph = (() => {
     window._btRightNodeGs = rightNodeGs;
     window._btRightEdges = rightPaths;
     window._btLeftEdges = leftPaths;
+    window._btLeftNodeGs = leftNodeGs;
     window._btNodes = nodes;
     window._btEdges = edges;
 
@@ -279,7 +280,6 @@ const BloodTrailGraph = (() => {
       );
       treeLayout(hier);
 
-      // Map tree positions back to simulation nodes
       const posById = {};
       hier.each(d => {
         posById[d.data.id] = isV

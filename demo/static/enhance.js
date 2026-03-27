@@ -152,12 +152,13 @@ const BloodTrailEnhance = (() => {
 
       g.append('text')
         .attr('class', 'qw-label')
-        .attr('dy', -(r + 10))
+        .attr('dy', -(r + 20))
         .attr('text-anchor', 'middle')
         .attr('fill', c.quickWin)
-        .attr('font-size', '0.45rem')
+        .attr('font-size', '0.4rem')
         .attr('font-family', 'JetBrains Mono, monospace')
         .attr('font-weight', 600)
+        .attr('opacity', 0)
         .text(qw?.type?.replace(/_/g, ' ').toUpperCase().slice(0, 22) || '');
     });
   }
@@ -195,9 +196,11 @@ const BloodTrailEnhance = (() => {
       // Reset all
       if (window._btRightEdges) window._btRightEdges.style('opacity', null);
       if (window._btRightNodeGs) window._btRightNodeGs.style('opacity', null);
+      if (window._btLeftEdges) window._btLeftEdges.style('opacity', null);
+      if (window._btLeftNodeGs) window._btLeftNodeGs.style('opacity', null);
       rightSvg.selectAll('.edge-group').style('opacity', null);
+      d3.select('#left-svg').selectAll('.edge-group').style('opacity', null);
       showExecutionChain(null);
-
       _resetZoom();
       return;
     }
@@ -213,20 +216,17 @@ const BloodTrailEnhance = (() => {
       chainEdgeKeys.add(`${s.from}→${s.to}`);
     });
 
-    // Aggressively dim non-chain elements
-    if (window._btRightEdges) {
-      window._btRightEdges.style('opacity', d => {
-        return chainEdgeKeys.has(`${d.source_id}→${d.target_id}`) ? 1 : 0.03;
-      });
-    }
-    // Also dim edge labels in edge-groups
-    rightSvg.selectAll('.edge-group').style('opacity', function(d) {
-      return chainEdgeKeys.has(`${d.source_id}→${d.target_id}`) ? 1 : 0.03;
-    });
+    // Aggressively dim non-chain elements on both panels
+    const edgeOp = d => chainEdgeKeys.has(`${d.source_id}→${d.target_id}`) ? 1 : 0.03;
+    const nodeOp = d => chainNodes.has(d.id) ? 1 : 0.05;
 
-    if (window._btRightNodeGs) {
-      window._btRightNodeGs.style('opacity', d => chainNodes.has(d.id) ? 1 : 0.05);
-    }
+    if (window._btRightEdges) window._btRightEdges.style('opacity', edgeOp);
+    if (window._btLeftEdges) window._btLeftEdges.style('opacity', edgeOp);
+    rightSvg.selectAll('.edge-group').style('opacity', edgeOp);
+    d3.select('#left-svg').selectAll('.edge-group').style('opacity', edgeOp);
+
+    if (window._btRightNodeGs) window._btRightNodeGs.style('opacity', nodeOp);
+    if (window._btLeftNodeGs) window._btLeftNodeGs.style('opacity', nodeOp);
 
     _zoomToChain(chainNodes);
     showExecutionChain(chainId);
@@ -258,7 +258,8 @@ const BloodTrailEnhance = (() => {
 
     const rightPanel = document.getElementById('right-panel');
     const sidebarW = 240;
-    const pw = rightPanel.clientWidth - sidebarW, ph = rightPanel.clientHeight;
+    const execChainH = 180;
+    const pw = rightPanel.clientWidth - sidebarW, ph = rightPanel.clientHeight - execChainH;
     const bw = maxX - minX, bh = maxY - minY;
     const scale = Math.min(pw / bw, ph / bh, 2.5);
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;

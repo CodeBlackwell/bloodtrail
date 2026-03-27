@@ -447,6 +447,7 @@ const BloodTrailEnhance = (() => {
 
       return `
         <div class="chain-step ${isInfo ? 'chain-step-info' : ''}">
+          ${isInfo ? '<div class="step-info-label">CONTEXT*</div>' : ''}
           <div class="step-header">
             <span class="step-number">${i + 1}</span>
             <span class="step-action">${step.action}</span>

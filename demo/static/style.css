@@ -586,8 +586,25 @@ header {
 }
 
 .chain-step-info {
-  opacity: 0.55;
+  opacity: 0.9;
+  background: rgba(204,51,51,0.08);
+  border-color: rgba(204,51,51,0.25);
   border-style: dashed;
+  transform: scale(0.92);
+}
+
+.chain-step-info .step-number { background: #993333; }
+.chain-step-info .step-action { color: #cc8888; }
+.chain-step-info .step-arrow { color: #996666; }
+.chain-step-info .step-desc { color: #aa7777; }
+.chain-step-info .step-note { color: #885555; }
+.chain-step-info .step-info-label { color: #cc5555; }
+
+.step-info-label {
+  font: 600 0.4rem 'JetBrains Mono', monospace;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.2rem;
 }
 
 .step-header {
@@ -736,6 +753,7 @@ footer {
 }
 
 .stat-value { color: var(--thermal); }
+.footer-note { margin-left: auto; color: var(--text-faint); font-size: 0.55rem; }
 
 /* === RESPONSIVE === */
 @media (max-width: 1024px) {

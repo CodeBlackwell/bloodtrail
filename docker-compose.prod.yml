@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: demo/Dockerfile
+      dockerfile: bloodtrail/demo/Dockerfile
     container_name: bloodtrail-app
     restart: unless-stopped
     networks:

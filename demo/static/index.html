@@ -90,31 +90,32 @@
 
     // --- Intro cycle ---
     let introTimer = null;
+    let introActive = false;
     let introIndex = 0;
 
-    function startIntroCycle(data) {
-      const chains = data.chains || [];
-      if (!chains.length) return;
-      // Wait for simulation to settle before first highlight
-      introTimer = setTimeout(() => cycleNext(chains), 2000);
+    function startIntroCycle() {
+      introActive = true;
+      introTimer = setTimeout(cycleNext, 2000);
     }
 
-    function cycleNext(chains) {
-      if (!introTimer) return;
+    function cycleNext() {
+      if (!introActive) return;
+      const chains = BloodTrailEnhance.getSortedChains();
+      if (!chains.length) { introActive = false; return; }
       BloodTrailEnhance.highlightChain(chains[introIndex % chains.length].id);
       introIndex++;
-      introTimer = setTimeout(() => cycleNext(chains), 6000);
+      introTimer = setTimeout(cycleNext, 6000);
     }
 
     function stopIntro() {
-      if (!introTimer) return;
+      if (!introActive) return;
       clearTimeout(introTimer);
       introTimer = null;
+      introActive = false;
       introListeners.forEach(([evt, fn]) => document.removeEventListener(evt, fn));
       introListeners = [];
     }
 
-    // Any user interaction kills the intro and cleans up all listeners
     let introListeners = ['click', 'wheel', 'keydown'].map(evt => {
       const fn = () => stopIntro();
       document.addEventListener(evt, fn, { once: true });
@@ -127,7 +128,7 @@
       document.getElementById('stat-nodes').textContent = (data.nodes || []).length;
       BloodTrailGraph.initGraph(data);
       BloodTrailEnhance.applyEnhancements(data);
-      startIntroCycle(data);
+      startIntroCycle();
     }
 
     // Polarity toggle

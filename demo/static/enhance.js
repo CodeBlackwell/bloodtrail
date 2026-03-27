@@ -5,6 +5,7 @@
 const BloodTrailEnhance = (() => {
   let currentData = null;
   let activeChainId = null;
+  let sortedChains = [];
 
   const COLORS = {
     'white-hot': { thermal: '#ff6b2b', peak: '#fff4e0', cold: '#2266aa', quickWin: '#ffcc00' },
@@ -167,8 +168,14 @@ const BloodTrailEnhance = (() => {
     const sidebar = document.getElementById('chain-sidebar');
     if (!chains.length) { sidebar.innerHTML = ''; return; }
 
+    const sevWeight = { critical: 0, high: 1, medium: 2 };
+    sortedChains = [...chains].sort((a, b) => {
+      const sw = (sevWeight[a.severity] ?? 3) - (sevWeight[b.severity] ?? 3);
+      return sw !== 0 ? sw : (b.steps?.length || 0) - (a.steps?.length || 0);
+    });
+
     sidebar.innerHTML = `<div class="sidebar-header">Attack Chains (${chains.length})</div>` +
-      chains.map(ch => `
+      sortedChains.map(ch => `
         <div class="chain-item" data-chain="${ch.id}">
           <span class="chain-name">${ch.name}</span>
           <span class="severity-badge severity-${ch.severity}">${ch.severity}</span>
@@ -464,5 +471,7 @@ const BloodTrailEnhance = (() => {
     el.classList.add('visible');
   }
 
-  return { applyEnhancements, updateHeatTrailColors, highlightChain, markAsPwned, showExecutionChain };
+  function getSortedChains() { return sortedChains; }
+
+  return { applyEnhancements, updateHeatTrailColors, highlightChain, markAsPwned, showExecutionChain, getSortedChains };
 })();

@@ -7,6 +7,9 @@ const BloodTrailGraph = (() => {
   let simulation = null;
   let leftG, rightG, leftSvg, rightSvg;
   let graphData = null;
+  let currentLayout = 'htree';
+  let currentFilter = 'attacks';
+  let layoutW = 0, layoutH = 0;
 
   // Node shapes: Domain=hexagon, Computer=rect, Group=diamond, User=circle
   const SHAPES = {
@@ -160,14 +163,17 @@ const BloodTrailGraph = (() => {
     leftNodeGs.on('click', (e, d) => selectNode(d.id));
     rightNodeGs.on('click', (e, d) => selectNode(d.id));
 
-    // Simulation with hierarchical y-force
+    layoutW = w;
+    layoutH = h;
+
+    // Simulation — forces configured by layout mode
     simulation = d3.forceSimulation(nodes)
-      .force('charge', d3.forceManyBody().strength(-350))
-      .force('link', d3.forceLink(edges).id(d => d.id).distance(90).strength(0.7))
-      .force('center', d3.forceCenter(w / 2, h / 2))
-      .force('collide', d3.forceCollide(16))
-      .force('y', d3.forceY(d => yTarget(d, h)).strength(0.12))
-      .on('tick', () => {
+      .force('link', d3.forceLink(edges).id(d => d.id))
+      .force('collide', d3.forceCollide(16));
+
+    _applyLayout(currentLayout);
+
+    simulation.on('tick', () => {
         // Curved edges
         const curvePath = (d) => {
           const dx = d.target.x - d.source.x;
@@ -195,6 +201,144 @@ const BloodTrailGraph = (() => {
       });
 
     setupZoomSync(leftSvg, rightSvg, leftG, rightG);
+
+    // Apply edge filter after render (default: attacks only)
+    requestAnimationFrame(() => _applyEdgeFilter(currentFilter));
+  }
+
+  // Build a d3.hierarchy from flat graph data via BFS from Domain root
+  function _buildHierarchy(nodes, edges) {
+    const root = nodes.find(n => n.label === 'Domain') || nodes[0];
+    const adj = {};
+    edges.forEach(e => {
+      const sid = typeof e.source === 'object' ? e.source.id : e.source;
+      const tid = typeof e.target === 'object' ? e.target.id : e.target;
+      (adj[sid] = adj[sid] || []).push(tid);
+      (adj[tid] = adj[tid] || []).push(sid);
+    });
+
+    // BFS from root, each node visited once
+    const visited = new Set([root.id]);
+    const tree = { id: root.id, children: [] };
+    const queue = [tree];
+    const treeNodeById = { [root.id]: tree };
+
+    while (queue.length) {
+      const parent = queue.shift();
+      for (const nid of (adj[parent.id] || [])) {
+        if (visited.has(nid)) continue;
+        visited.add(nid);
+        const child = { id: nid, children: [] };
+        parent.children.push(child);
+        treeNodeById[nid] = child;
+        queue.push(child);
+      }
+    }
+
+    // Attach orphans (nodes with no edges to the main tree)
+    nodes.forEach(n => {
+      if (!visited.has(n.id)) {
+        const child = { id: n.id, children: [] };
+        tree.children.push(child);
+        treeNodeById[n.id] = child;
+      }
+    });
+
+    return d3.hierarchy(tree);
+  }
+
+  function _applyLayout(mode) {
+    if (!simulation) return;
+    const w = layoutW, h = layoutH;
+
+    // Clear forces
+    simulation.force('center', null);
+    simulation.force('charge', null);
+    simulation.force('x', null);
+    simulation.force('y', null);
+
+    const link = simulation.force('link');
+    const nodes = simulation.nodes();
+
+    if (mode === 'force') {
+      // Unpin all nodes, let forces drive
+      nodes.forEach(n => { n.fx = null; n.fy = null; });
+      simulation.force('charge', d3.forceManyBody().strength(-350));
+      simulation.force('center', d3.forceCenter(w / 2, h / 2));
+      simulation.force('y', d3.forceY(d => yTarget(d, h)).strength(0.12));
+      link.distance(90).strength(0.7);
+    }
+
+    else if (mode === 'vtree' || mode === 'htree') {
+      const hier = _buildHierarchy(nodes, window._btEdges || []);
+      const pad = 40;
+      const isV = mode === 'vtree';
+
+      const treeLayout = d3.tree().size(
+        isV ? [w - pad * 2, h - pad * 2] : [h - pad * 2, w - pad * 2]
+      );
+      treeLayout(hier);
+
+      // Map tree positions back to simulation nodes
+      const posById = {};
+      hier.each(d => {
+        posById[d.data.id] = isV
+          ? { x: d.x + pad, y: d.y + pad }
+          : { x: d.y + pad, y: d.x + pad };
+      });
+
+      nodes.forEach(n => {
+        const pos = posById[n.id];
+        if (pos) { n.fx = pos.x; n.fy = pos.y; }
+      });
+
+      // Minimal forces — just keep things tidy
+      simulation.force('charge', null);
+      link.distance(50).strength(0);
+    }
+
+    simulation.alpha(1).restart();
+  }
+
+  function setLayout(mode) {
+    currentLayout = mode;
+    simulation.nodes().forEach(n => { n.fx = null; n.fy = null; });
+    _applyLayout(mode);
+  }
+
+  // Edge filter: 'attacks' hides MemberOf/Contains, dims unconnected nodes
+  function _applyEdgeFilter(mode) {
+    const STRUCTURAL = EDGE_CATS.member;
+    const hideStructural = mode === 'attacks';
+
+    // Build set of nodes that have at least one visible attack edge
+    const attackConnected = new Set();
+    if (hideStructural && window._btEdges) {
+      window._btEdges.forEach(e => {
+        if (!STRUCTURAL.has(e.edge)) {
+          attackConnected.add(typeof e.source === 'object' ? e.source.id : e.source);
+          attackConnected.add(typeof e.target === 'object' ? e.target.id : e.target);
+        }
+      });
+    }
+
+    // Toggle edge visibility on both panels
+    d3.selectAll('.edge-group').each(function(d) {
+      const isMember = STRUCTURAL.has(d.edge);
+      d3.select(this).classed('edge-hidden', hideStructural && isMember);
+    });
+
+    // Dim nodes with no attack edges (right panel only for enhanced view)
+    if (window._btRightNodeGs) {
+      window._btRightNodeGs.classed('node-dimmed', d => {
+        return hideStructural && !attackConnected.has(d.id);
+      });
+    }
+  }
+
+  function setEdgeFilter(mode) {
+    currentFilter = mode;
+    _applyEdgeFilter(mode);
   }
 
   function _addMarkers(svg, prefix) {
@@ -277,5 +421,5 @@ const BloodTrailGraph = (() => {
   }
 
   function refreshGraph(data) { initGraph(data); }
-  return { initGraph, refreshGraph };
+  return { initGraph, refreshGraph, setLayout, setEdgeFilter };
 })();

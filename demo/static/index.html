@@ -12,6 +12,15 @@
   <header>
     <span class="logo">BLOODTRAIL</span>
     <div class="header-controls">
+      <div class="edge-filter-toggle">
+        <button class="active" data-filter="attacks">Attacks</button>
+        <button data-filter="all">All</button>
+      </div>
+      <div class="layout-toggle">
+        <button class="active" data-layout="htree">H-Tree</button>
+        <button data-layout="vtree">V-Tree</button>
+        <button data-layout="force">Force</button>
+      </div>
       <div class="polarity-toggle">
         <button id="btn-wh" class="active">WH</button>
         <button id="btn-bh">BH</button>
@@ -62,6 +71,8 @@
     </div>
   </div>
 
+  <div id="execution-chain" class="execution-chain"></div>
+
   <div class="bt-tooltip" id="tooltip"></div>
 
   <script src="/static/graph.js"></script>
@@ -75,12 +86,46 @@
       render(currentData);
     }
 
+    // --- Intro cycle ---
+    let introTimer = null;
+    let introIndex = 0;
+
+    function startIntroCycle(data) {
+      const chains = data.chains || [];
+      if (!chains.length) return;
+      // Wait for simulation to settle before first highlight
+      introTimer = setTimeout(() => cycleNext(chains), 2000);
+    }
+
+    function cycleNext(chains) {
+      if (!introTimer) return;
+      BloodTrailEnhance.highlightChain(chains[introIndex % chains.length].id);
+      introIndex++;
+      introTimer = setTimeout(() => cycleNext(chains), 6000);
+    }
+
+    function stopIntro() {
+      if (!introTimer) return;
+      clearTimeout(introTimer);
+      introTimer = null;
+      introListeners.forEach(([evt, fn]) => document.removeEventListener(evt, fn));
+      introListeners = [];
+    }
+
+    // Any user interaction kills the intro and cleans up all listeners
+    let introListeners = ['click', 'wheel', 'keydown'].map(evt => {
+      const fn = () => stopIntro();
+      document.addEventListener(evt, fn, { once: true });
+      return [evt, fn];
+    });
+
     function render(data) {
       document.getElementById('stat-chains').textContent = (data.chains || []).length;
       document.getElementById('stat-quickwins').textContent = (data.quick_wins || []).length;
       document.getElementById('stat-nodes').textContent = (data.nodes || []).length;
       BloodTrailGraph.initGraph(data);
       BloodTrailEnhance.applyEnhancements(data);
+      startIntroCycle(data);
     }
 
     // Polarity toggle
@@ -144,6 +189,24 @@
         zone.querySelector('p').textContent = 'Error: ' + err.message;
       }
     }
+
+    // Edge filter toggle
+    document.querySelector('.edge-filter-toggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      document.querySelectorAll('.edge-filter-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      BloodTrailGraph.setEdgeFilter(btn.dataset.filter);
+    });
+
+    // Layout toggle
+    document.querySelector('.layout-toggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      document.querySelectorAll('.layout-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      BloodTrailGraph.setLayout(btn.dataset.layout);
+    });
 
     loadSample();
   </script>

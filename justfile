@@ -10,3 +10,7 @@ build-sample:
 
 install:
     pip install fastapi uvicorn python-multipart
+
+deploy:
+    git push
+    ssh root@5.78.198.79 'cd /opt/bloodtrail && git pull && docker compose -f docker-compose.prod.yml up -d --build'

@@ -58,7 +58,9 @@ from .lateral import (
 from .edge_mappings import (
     CRED_TYPE_COMMANDS,
     CRED_TYPE_TEMPLATES,
+    EDGE_COMMANDS,
     EDGE_COMMAND_MAPPINGS,
+    get_edge_commands,
     get_commands_for_cred_type,
     get_command_template,
 )
@@ -146,7 +148,9 @@ __all__ = [
     # Edge mappings
     "CRED_TYPE_COMMANDS",
     "CRED_TYPE_TEMPLATES",
+    "EDGE_COMMANDS",
     "EDGE_COMMAND_MAPPINGS",
+    "get_edge_commands",
     "get_commands_for_cred_type",
     "get_command_template",
     # Authenticated attacks

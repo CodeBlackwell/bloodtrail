@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 
 from .mappings.query_loader import QUERY_COMMAND_MAPPINGS
-from .mappings.edge_mappings import EDGE_COMMAND_MAPPINGS
+from .mappings.edge_mappings import EDGE_COMMAND_MAPPINGS, get_edge_commands
 from .mappings.text_utils import (
     SENSITIVE_PLACEHOLDERS,
     extract_domain,
@@ -1033,7 +1033,7 @@ class CommandSuggester:
 
             steps = []
             for i, edge in enumerate(edges):
-                cmd_ids = EDGE_COMMAND_MAPPINGS.get(edge, [])
+                cmd_ids = get_edge_commands(edge)
                 if not cmd_ids:
                     continue
 
@@ -1093,7 +1093,7 @@ class CommandSuggester:
 
     def get_commands_for_edge(self, edge_type: str) -> List[CommandSuggestion]:
         """Get all commands applicable for a specific edge type"""
-        cmd_ids = EDGE_COMMAND_MAPPINGS.get(edge_type, [])
+        cmd_ids = get_edge_commands(edge_type)
         suggestions = []
 
         for cmd_id in cmd_ids:
@@ -1120,7 +1120,7 @@ class CommandSuggester:
             target = access.get("Target", access.get("Computer", ""))
             access_type = access.get("AccessType", "AdminTo")
 
-            cmd_ids = EDGE_COMMAND_MAPPINGS.get(access_type, [])
+            cmd_ids = get_edge_commands(access_type)
 
             for cmd_id in cmd_ids[:2]:
                 key = (cmd_id, target)

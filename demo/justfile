@@ -1,8 +1,0 @@
-dev:
-    cd {{justfile_directory()}} && uvicorn app:app --reload --reload-dir static --reload-dir . --host 0.0.0.0 --port 8008
-
-build-sample:
-    cd {{justfile_directory()}} && python data/build_sample.py
-
-install:
-    pip install fastapi uvicorn python-multipart

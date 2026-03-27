@@ -1,5 +1,4 @@
 import json
-import sys
 import tempfile
 import time
 from collections import defaultdict
@@ -10,11 +9,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 
-# Allow importing bloodtrail from parent directory
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from parser import parse_upload
-from analyzer import analyze
+from .parser import parse_upload
+from .analyzer import analyze
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 ALLOWED_EXTENSIONS = {".zip", ".json"}

@@ -1,0 +1,8 @@
+dev:
+    cd {{justfile_directory()}}/../.. && uvicorn bloodtrail.demo.app:app --reload --reload-dir bloodtrail/demo/static --reload-dir bloodtrail/demo --host 0.0.0.0 --port 8008
+
+build-sample:
+    cd {{justfile_directory()}} && python data/build_sample.py
+
+install:
+    pip install fastapi uvicorn python-multipart

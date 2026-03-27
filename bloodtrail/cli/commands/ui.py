@@ -6,7 +6,6 @@ Requires optional dependencies: pip install bloodtrail[ui]
 """
 
 import json
-import sys
 import webbrowser
 from argparse import Namespace
 from pathlib import Path
@@ -16,19 +15,12 @@ from ..base import BaseCommandGroup
 
 def _load_data(bh_path):
     """Load BloodHound data — handles both raw SharpHound and pre-processed formats."""
-    # Import demo modules — they live outside the bloodtrail package
-    demo_dir = Path(__file__).resolve().parent.parent.parent.parent / "demo"
-    sys.path.insert(0, str(demo_dir))
-
-    from parser import parse_upload
-    from analyzer import analyze
+    from ...demo.parser import parse_upload
+    from ...demo.analyzer import analyze
 
     path = Path(bh_path)
-
-    # Try as raw SharpHound data first
     parsed = parse_upload(path)
 
-    # If parse_upload found nothing, check for pre-processed JSON
     if not parsed["nodes"] and path.is_dir():
         for f in path.glob("*.json"):
             data = json.loads(f.read_text())
@@ -39,7 +31,6 @@ def _load_data(bh_path):
     if not parsed.get("nodes"):
         return None
 
-    # Run analysis if chains aren't already present
     if not parsed.get("chains"):
         result = analyze(parsed["nodes"], parsed["edges"])
         parsed["chains"] = result["chains"]
@@ -80,10 +71,7 @@ class UICommands(BaseCommandGroup):
             cls.print_error("No BloodHound data found. Provide a SharpHound ZIP, JSON dir, or pre-processed file.")
             return 1
 
-        demo_dir = Path(__file__).resolve().parent.parent.parent.parent / "demo"
-        sys.path.insert(0, str(demo_dir))
-        from app import app, set_data
-
+        from ...demo.app import app, set_data
         set_data(parsed)
 
         port = getattr(args, 'port', 8765)

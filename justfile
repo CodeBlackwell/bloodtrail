@@ -3,14 +3,19 @@ DEMO_PORT := "8008"
 
 dev:
     -lsof -ti :{{DEMO_PORT}} | xargs kill -9 2>/dev/null
-    cd demo && uvicorn app:app --reload --reload-dir static --reload-dir . --host 0.0.0.0 --port {{DEMO_PORT}}
+    uvicorn bloodtrail.demo.app:app --reload --reload-dir bloodtrail/demo/static --reload-dir bloodtrail/demo --host 0.0.0.0 --port {{DEMO_PORT}}
 
 build-sample:
-    cd demo && python data/build_sample.py
+    cd bloodtrail/demo && python data/build_sample.py
 
 install:
-    pip install fastapi uvicorn python-multipart
+    pip install -e ".[ui]"
 
 deploy:
     git push
     ssh root@5.78.198.79 'cd /opt/bloodtrail && git pull && docker compose -f docker-compose.prod.yml up -d --build'
+
+publish:
+    rm -rf dist/
+    python -m build
+    twine upload dist/*

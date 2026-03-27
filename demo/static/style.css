@@ -518,6 +518,16 @@ header {
 }
 
 .execution-chain.visible { transform: translateY(0); }
+.execution-chain .exec-header,
+.execution-chain .exec-steps { transition: opacity 0.25s ease; }
+.execution-chain.exec-fade-out .exec-header,
+.execution-chain.exec-fade-out .exec-steps { opacity: 0; }
+
+.exec-steps > * { animation: step-fade-in 0.3s ease both; }
+@keyframes step-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .exec-header {
   display: flex;

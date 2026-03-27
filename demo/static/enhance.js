@@ -199,14 +199,17 @@ const BloodTrailEnhance = (() => {
     const rightSvg = d3.select('#right-svg');
 
 
+    const dur = 400;
+    const leftSvg = d3.select('#left-svg');
+
     if (isToggle || !activeChainId) {
-      // Reset all
-      if (window._btRightEdges) window._btRightEdges.style('opacity', null);
-      if (window._btRightNodeGs) window._btRightNodeGs.style('opacity', null);
-      if (window._btLeftEdges) window._btLeftEdges.style('opacity', null);
-      if (window._btLeftNodeGs) window._btLeftNodeGs.style('opacity', null);
-      rightSvg.selectAll('.edge-group').style('opacity', null);
-      d3.select('#left-svg').selectAll('.edge-group').style('opacity', null);
+      // Fade everything back
+      if (window._btRightEdges) window._btRightEdges.transition().duration(dur).style('opacity', null);
+      if (window._btRightNodeGs) window._btRightNodeGs.transition().duration(dur).style('opacity', null);
+      if (window._btLeftEdges) window._btLeftEdges.transition().duration(dur).style('opacity', null);
+      if (window._btLeftNodeGs) window._btLeftNodeGs.transition().duration(dur).style('opacity', null);
+      rightSvg.selectAll('.edge-group').transition().duration(dur).style('opacity', null);
+      leftSvg.selectAll('.edge-group').transition().duration(dur).style('opacity', null);
       showExecutionChain(null);
       _resetZoom();
       return;
@@ -223,17 +226,17 @@ const BloodTrailEnhance = (() => {
       chainEdgeKeys.add(`${s.from}→${s.to}`);
     });
 
-    // Aggressively dim non-chain elements on both panels
+    // Cross-fade to new chain on both panels
     const edgeOp = d => chainEdgeKeys.has(`${d.source_id}→${d.target_id}`) ? 1 : 0.03;
     const nodeOp = d => chainNodes.has(d.id) ? 1 : 0.05;
 
-    if (window._btRightEdges) window._btRightEdges.style('opacity', edgeOp);
-    if (window._btLeftEdges) window._btLeftEdges.style('opacity', edgeOp);
-    rightSvg.selectAll('.edge-group').style('opacity', edgeOp);
-    d3.select('#left-svg').selectAll('.edge-group').style('opacity', edgeOp);
+    if (window._btRightEdges) window._btRightEdges.transition().duration(dur).style('opacity', edgeOp);
+    if (window._btLeftEdges) window._btLeftEdges.transition().duration(dur).style('opacity', edgeOp);
+    rightSvg.selectAll('.edge-group').transition().duration(dur).style('opacity', edgeOp);
+    leftSvg.selectAll('.edge-group').transition().duration(dur).style('opacity', edgeOp);
 
-    if (window._btRightNodeGs) window._btRightNodeGs.style('opacity', nodeOp);
-    if (window._btLeftNodeGs) window._btLeftNodeGs.style('opacity', nodeOp);
+    if (window._btRightNodeGs) window._btRightNodeGs.transition().duration(dur).style('opacity', nodeOp);
+    if (window._btLeftNodeGs) window._btLeftNodeGs.transition().duration(dur).style('opacity', nodeOp);
 
     _zoomToChain(chainNodes);
     showExecutionChain(chainId);
@@ -423,21 +426,9 @@ const BloodTrailEnhance = (() => {
     return '\u25B6';                          // play triangle
   }
 
-  function showExecutionChain(chainId) {
-    const el = document.getElementById('execution-chain');
-    if (!currentData) { el.classList.remove('visible'); return; }
+  let _execSwapTimer = null;
 
-    if (!chainId) { el.classList.remove('visible'); return; }
-
-    const chain = currentData.chains.find(c => c.id === chainId);
-    if (!chain) { el.classList.remove('visible'); return; }
-
-    const nodes = currentData.nodes || [];
-    const shortN = (id) => {
-      const n = nodes.find(nn => nn.id === id);
-      return n ? n.name.split('@')[0].split('.')[0] : '?';
-    };
-
+  function _buildExecHtml(chain, shortN) {
     const stepsHtml = chain.steps.map((step, i) => {
       const template = CMD_TEMPLATES[step.action];
       const cmd = _resolveCmd(template, step, chain, currentData);
@@ -460,7 +451,7 @@ const BloodTrailEnhance = (() => {
         </div>${connector}`;
     }).join('');
 
-    el.innerHTML = `
+    return `
       <div class="exec-header">
         <span class="exec-label">EXECUTION CHAIN</span>
         <span class="severity-badge severity-${chain.severity}">${chain.severity}</span>
@@ -468,8 +459,43 @@ const BloodTrailEnhance = (() => {
         <button class="exec-close" onclick="BloodTrailEnhance.highlightChain('${chain.id}')">\u2715</button>
       </div>
       <div class="exec-steps">${stepsHtml}</div>`;
+  }
 
-    el.classList.add('visible');
+  function showExecutionChain(chainId) {
+    const el = document.getElementById('execution-chain');
+    if (_execSwapTimer) { clearTimeout(_execSwapTimer); _execSwapTimer = null; }
+
+    if (!currentData || !chainId) {
+      el.classList.add('exec-fade-out');
+      _execSwapTimer = setTimeout(() => {
+        el.classList.remove('visible', 'exec-fade-out');
+      }, 250);
+      return;
+    }
+
+    const chain = currentData.chains.find(c => c.id === chainId);
+    if (!chain) { el.classList.remove('visible'); return; }
+
+    const nodes = currentData.nodes || [];
+    const shortN = (id) => {
+      const n = nodes.find(nn => nn.id === id);
+      return n ? n.name.split('@')[0].split('.')[0] : '?';
+    };
+
+    const isAlreadyVisible = el.classList.contains('visible');
+
+    if (isAlreadyVisible) {
+      // Cross-fade: fade out old, swap, fade in new
+      el.classList.add('exec-fade-out');
+      _execSwapTimer = setTimeout(() => {
+        el.innerHTML = _buildExecHtml(chain, shortN);
+        el.classList.remove('exec-fade-out');
+      }, 250);
+    } else {
+      // First open: just populate and slide up
+      el.innerHTML = _buildExecHtml(chain, shortN);
+      el.classList.add('visible');
+    }
   }
 
   function getSortedChains() { return sortedChains; }

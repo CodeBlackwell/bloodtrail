@@ -7,6 +7,9 @@ const BloodTrailEnhance = (() => {
   let activeChainId = null;
   let sortedChains = [];
 
+  // HTML-escape shorthand — delegates to graph.js
+  const esc = (s) => BloodTrailGraph.esc(s);
+
   const COLORS = {
     'white-hot': { thermal: '#ff6b2b', peak: '#fff4e0', cold: '#2266aa', quickWin: '#ffcc00' },
     'black-hot': { thermal: '#8b2500', peak: '#1a0800', cold: '#5588bb', quickWin: '#886600' },
@@ -188,9 +191,9 @@ const BloodTrailEnhance = (() => {
 
     sidebar.innerHTML = `<div class="sidebar-header">Attack Chains (${chains.length})</div>` +
       sortedChains.map(ch => `
-        <div class="chain-item" data-chain="${ch.id}">
-          <span class="chain-name">${ch.name}</span>
-          <span class="severity-badge severity-${ch.severity}">${ch.severity}</span>
+        <div class="chain-item" data-chain="${esc(ch.id)}">
+          <span class="chain-name">${esc(ch.name)}</span>
+          <span class="severity-badge severity-${esc(ch.severity)}">${esc(ch.severity)}</span>
         </div>
       `).join('');
 
@@ -446,7 +449,7 @@ const BloodTrailEnhance = (() => {
       const template = CMD_TEMPLATES[step.action];
       const cmd = _resolveCmd(template, step, chain, currentData);
       const isInfo = template?.tool === 'info' || template?.tool === 'result';
-      const arrow = step.to ? `${shortN(step.from)} \u2192 ${shortN(step.to)}` : shortN(step.from);
+      const arrow = step.to ? `${esc(shortN(step.from))} \u2192 ${esc(shortN(step.to))}` : esc(shortN(step.from));
       const connector = i < chain.steps.length - 1 ? '<div class="step-connector">\u25B6</div>' : '';
 
       return `
@@ -454,22 +457,23 @@ const BloodTrailEnhance = (() => {
           ${isInfo ? '<div class="step-info-label">CONTEXT*</div>' : ''}
           <div class="step-header">
             <span class="step-number">${i + 1}</span>
-            <span class="step-action">${step.action}</span>
-            ${template?.tool && !isInfo ? `<span class="step-tool">${template.tool}</span>` : ''}
+            <span class="step-action">${esc(step.action)}</span>
+            ${template?.tool && !isInfo ? `<span class="step-tool">${esc(template.tool)}</span>` : ''}
           </div>
           <div class="step-arrow">${arrow}</div>
-          <div class="step-desc">${step.description}</div>
-          ${cmd ? `<div class="step-cmd"><code>${cmd}</code></div>` : ''}
-          ${template?.note ? `<div class="step-note">${template.note}</div>` : ''}
+          <div class="step-desc">${esc(step.description)}</div>
+          ${cmd ? `<div class="step-cmd"><code>${esc(cmd)}</code></div>` : ''}
+          ${template?.note ? `<div class="step-note">${esc(template.note)}</div>` : ''}
         </div>${connector}`;
     }).join('');
 
+    const safeId = esc(chain.id).replace(/'/g, "\\'");
     return `
       <div class="exec-header">
         <span class="exec-label">EXECUTION CHAIN</span>
-        <span class="severity-badge severity-${chain.severity}">${chain.severity}</span>
-        <span class="exec-name">${chain.name}</span>
-        <button class="exec-close" onclick="BloodTrailEnhance.highlightChain('${chain.id}')">\u2715</button>
+        <span class="severity-badge severity-${esc(chain.severity)}">${esc(chain.severity)}</span>
+        <span class="exec-name">${esc(chain.name)}</span>
+        <button class="exec-close" onclick="BloodTrailEnhance.highlightChain('${safeId}')">\u2715</button>
       </div>
       <div class="exec-steps">${stepsHtml}</div>`;
   }

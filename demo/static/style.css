@@ -117,9 +117,9 @@ header {
   text-transform: uppercase;
 }
 
-.header-left { display: flex; align-items: center; gap: 0.75rem; }
-
-.header-controls { display: flex; align-items: center; gap: 0.75rem; }
+.header-left { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
+.header-center { display: flex; justify-content: center; }
+.header-controls { display: flex; align-items: center; gap: 0.75rem; flex: 1; justify-content: flex-end; }
 
 .edge-filter-toggle {
   display: inline-flex;
@@ -175,7 +175,7 @@ header {
 
 .polarity-toggle {
   display: inline-flex;
-  border: 1px solid var(--thermal-22);
+  border: 1px solid #555;
   border-radius: 2px;
   font: 600 0.6rem 'JetBrains Mono', monospace;
   letter-spacing: 0.05em;
@@ -183,17 +183,30 @@ header {
 }
 
 .polarity-toggle button {
-  padding: 0.25rem 0.5rem;
-  background: transparent;
-  color: var(--text-secondary);
+  padding: 0.3rem 0.7rem;
   border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: opacity 0.2s ease;
 }
 
-.polarity-toggle button.active {
-  background: var(--thermal);
-  color: var(--void);
+/* White-Hot button: always its theme — dark bg, bright orange text */
+.polarity-wh {
+  background: #0c0c10;
+  color: #ff6b2b;
+  opacity: 0.35;
+}
+.polarity-wh.active {
+  opacity: 1;
+}
+
+/* Black-Hot button: always its theme — light bg, dark red text */
+.polarity-bh {
+  background: #f0ede8;
+  color: #8b2500;
+  opacity: 0.35;
+}
+.polarity-bh.active {
+  opacity: 1;
 }
 
 .upload-btn {

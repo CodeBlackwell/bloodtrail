@@ -102,6 +102,9 @@ class DirectoryDataSource(DataSource):
 class ZipDataSource(DataSource):
     """Data source for a ZIP archive containing JSON files"""
 
+    MAX_DECOMPRESSED_SIZE = 200 * 1024 * 1024  # 200 MB total decompressed limit
+    MAX_FILES = 500  # max JSON files in a single ZIP
+
     def __init__(self, zip_path: Path):
         self._path = Path(zip_path)
         if not self._path.exists():
@@ -167,14 +170,27 @@ class ZipDataSource(DataSource):
     def iter_json_files(self) -> Iterator[Tuple[str, dict]]:
         zf = self._get_zip()
 
+        # Check total decompressed size before extracting anything
+        total_size = sum(info.file_size for info in zf.infolist())
+        if total_size > self.MAX_DECOMPRESSED_SIZE:
+            raise ValueError(
+                f"ZIP decompressed size ({total_size // (1024*1024)} MB) exceeds "
+                f"limit ({self.MAX_DECOMPRESSED_SIZE // (1024*1024)} MB)"
+            )
+
+        file_count = 0
         for name in zf.namelist():
-            # Skip macOS metadata and non-JSON files
             if name.startswith('__MACOSX'):
                 continue
 
             basename = Path(name).name
             if not basename.lower().endswith('.json'):
                 continue
+
+            file_count += 1
+            if file_count > self.MAX_FILES:
+                print(f"[!] ZIP contains too many JSON files (>{self.MAX_FILES}), stopping")
+                break
 
             try:
                 data = self._parse_json_with_fallback(zf, name)

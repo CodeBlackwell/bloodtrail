@@ -67,6 +67,12 @@ const BloodTrailGraph = (() => {
     return name.split('@')[0].split('.')[0];
   }
 
+  // HTML-escape untrusted strings before innerHTML insertion
+  function esc(s) {
+    if (typeof s !== 'string') return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function initGraph(data) {
     graphData = data;
     d3.select('#left-svg').selectAll('*').remove();
@@ -413,13 +419,13 @@ const BloodTrailGraph = (() => {
       .map(e => {
         const tools = getEdgeCommands(e.edge);
         if (!tools.length) return '';
-        const dir = e.source_id === nodeId ? `→ ${shortName(e.target_name)}` : `← ${shortName(e.source_name)}`;
-        return `<div class="tool-name">${e.edge} ${dir}</div><div class="cmd-text">${tools.join(', ')}</div>`;
+        const dir = e.source_id === nodeId ? `→ ${esc(shortName(e.target_name))}` : `← ${esc(shortName(e.source_name))}`;
+        return `<div class="tool-name">${esc(e.edge)} ${dir}</div><div class="cmd-text">${esc(tools.join(', '))}</div>`;
       }).filter(Boolean).slice(0, 5);
 
     if (cmds.length) {
-      tooltip.innerHTML = `<div class="tool-name" style="font-size:0.8rem;margin-bottom:0.4rem">${node.name}</div>
-        <div style="color:var(--text-faint);font-size:0.6rem;margin-bottom:0.3rem">${node.label}</div>
+      tooltip.innerHTML = `<div class="tool-name" style="font-size:0.8rem;margin-bottom:0.4rem">${esc(node.name)}</div>
+        <div style="color:var(--text-faint);font-size:0.6rem;margin-bottom:0.3rem">${esc(node.label)}</div>
         ${cmds.join('<hr style="border-color:var(--thermal-22);margin:0.3rem 0">')}`;
       tooltip.classList.add('visible');
       tooltip.style.left = '50%';
@@ -446,5 +452,5 @@ const BloodTrailGraph = (() => {
   }
 
   function refreshGraph(data) { initGraph(data); }
-  return { initGraph, refreshGraph, setLayout, setEdgeFilter };
+  return { initGraph, refreshGraph, setLayout, setEdgeFilter, esc };
 })();

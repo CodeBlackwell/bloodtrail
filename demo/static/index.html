@@ -10,13 +10,19 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://d3js.org/d3.v7.min.js" defer></script>
 </head>
-<body class="white-hot">
+<body class="black-hot">
 
   <header>
     <div class="header-left">
       <span class="logo">BLOODTRAIL</span>
       <button class="upload-btn" id="btn-upload">Upload SharpHound</button>
       <button class="download-btn" id="btn-download">Download Results</button>
+    </div>
+    <div class="header-center">
+      <div class="polarity-toggle">
+        <button id="btn-bh" class="active polarity-bh">Black-Hot</button>
+        <button id="btn-wh" class="polarity-wh">White-Hot</button>
+      </div>
     </div>
     <div class="header-controls">
       <div class="edge-filter-toggle">
@@ -27,10 +33,6 @@
         <button class="active" data-layout="htree">H-Tree</button>
         <button data-layout="vtree">V-Tree</button>
         <button data-layout="force">Force</button>
-      </div>
-      <div class="polarity-toggle">
-        <button id="btn-wh" class="active">WH</button>
-        <button id="btn-bh">BH</button>
       </div>
     </div>
   </header>
@@ -275,13 +277,23 @@
       if (fileInput.files.length) uploadFile(fileInput.files[0]);
     });
 
+    const MAX_UPLOAD_MB = 50;
     async function uploadFile(file) {
+      if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        zone.querySelector('p').textContent = `File too large (max ${MAX_UPLOAD_MB} MB)`;
+        return;
+      }
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['zip', 'json'].includes(ext)) {
+        zone.querySelector('p').textContent = 'Invalid file type. Use .zip or .json';
+        return;
+      }
       const form = new FormData();
       form.append('file', file);
       zone.querySelector('p').textContent = 'Processing...';
       try {
         const res = await fetch('/api/upload', { method: 'POST', body: form });
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed');
         currentData = await res.json();
         overlay.classList.remove('visible');
         render(currentData);

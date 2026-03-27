@@ -36,11 +36,14 @@ const BloodTrailGraph = (() => {
     member:   new Set(['MemberOf','Contains']),
   };
 
+  // Pre-built reverse lookup: edge type → category (O(1) instead of iterating all sets)
+  const EDGE_CAT_LOOKUP = {};
+  for (const [cat, set] of Object.entries(EDGE_CATS)) {
+    for (const type of set) EDGE_CAT_LOOKUP[type] = cat;
+  }
+
   function edgeCategory(type) {
-    for (const [cat, set] of Object.entries(EDGE_CATS)) {
-      if (set.has(type)) return cat;
-    }
-    return 'other';
+    return EDGE_CAT_LOOKUP[type] || 'other';
   }
 
   // Hierarchical y-position targets
@@ -157,8 +160,11 @@ const BloodTrailGraph = (() => {
     window._btRightEdges = rightPaths;
     window._btLeftEdges = leftPaths;
     window._btLeftNodeGs = leftNodeGs;
+    window._btLeftEdgeGs = leftEdgeGs;
+    window._btRightEdgeGs = rightEdgeGs;
     window._btNodes = nodes;
     window._btEdges = edges;
+    _attackConnectedCache = null; // invalidate on new data
 
     // Click
     leftNodeGs.on('click', (e, d) => selectNode(d.id));
@@ -167,6 +173,25 @@ const BloodTrailGraph = (() => {
     layoutW = w;
     layoutH = h;
 
+    // Tick helpers — extracted to avoid closure allocation per frame
+    function curvePath(d) {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dr = Math.sqrt(dx * dx + dy * dy) * 1.5;
+      return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+    }
+    function labelPosX(d) {
+      const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      return (d.source.x + d.target.x) / 2 - (dy/len)*8;
+    }
+    function labelPosY(d) {
+      const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      return (d.source.y + d.target.y) / 2 + (dx/len)*8;
+    }
+    function nodeTransform(d) { return `translate(${d.x},${d.y})`; }
+
     // Simulation — forces configured by layout mode
     simulation = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(edges).id(d => d.id))
@@ -174,31 +199,23 @@ const BloodTrailGraph = (() => {
 
     _applyLayout(currentLayout);
 
+    // Reusable objects to reduce GC pressure in tick loop
+    let _tickFrame = 0;
+
     simulation.on('tick', () => {
-        // Curved edges
-        const curvePath = (d) => {
-          const dx = d.target.x - d.source.x;
-          const dy = d.target.y - d.source.y;
-          const dr = Math.sqrt(dx * dx + dy * dy) * 1.5;
-          return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
-        };
+        _tickFrame++;
+        // Curved edges — both panels share same node positions
         leftPaths.attr('d', curvePath);
         rightPaths.attr('d', curvePath);
-        // Edge labels at midpoint
-        const labelPos = (d) => {
-          const mx = (d.source.x + d.target.x) / 2;
-          const my = (d.source.y + d.target.y) / 2;
-          // offset perpendicular to the arc
-          const dx = d.target.x - d.source.x;
-          const dy = d.target.y - d.source.y;
-          const len = Math.sqrt(dx*dx + dy*dy) || 1;
-          const off = 8;
-          return { x: mx - (dy/len)*off, y: my + (dx/len)*off };
-        };
-        leftEdgeLabels.attr('x', d => labelPos(d).x).attr('y', d => labelPos(d).y);
-        rightEdgeLabels.attr('x', d => labelPos(d).x).attr('y', d => labelPos(d).y);
-        leftNodeGs.attr('transform', d => `translate(${d.x},${d.y})`);
-        rightNodeGs.attr('transform', d => `translate(${d.x},${d.y})`);
+
+        // Edge labels — only update every 3rd tick (they drift slowly, invisible cost)
+        if (_tickFrame % 3 === 0) {
+          rightEdgeLabels.attr('x', labelPosX).attr('y', labelPosY);
+          // Left labels are opacity:0 by default, skip entirely unless hovered
+        }
+
+        leftNodeGs.attr('transform', nodeTransform);
+        rightNodeGs.attr('transform', nodeTransform);
       });
 
     setupZoomSync(leftSvg, rightSvg, leftG, rightG);
@@ -306,33 +323,41 @@ const BloodTrailGraph = (() => {
     _applyLayout(mode);
   }
 
+  // Pre-computed set of nodes connected by attack (non-structural) edges
+  let _attackConnectedCache = null;
+
+  function _buildAttackConnected() {
+    if (_attackConnectedCache) return _attackConnectedCache;
+    const set = new Set();
+    if (window._btEdges) {
+      const STRUCTURAL = EDGE_CATS.member;
+      window._btEdges.forEach(e => {
+        if (!STRUCTURAL.has(e.edge)) {
+          set.add(typeof e.source === 'object' ? e.source.id : e.source);
+          set.add(typeof e.target === 'object' ? e.target.id : e.target);
+        }
+      });
+    }
+    _attackConnectedCache = set;
+    return set;
+  }
+
   // Edge filter: 'attacks' hides MemberOf/Contains, dims unconnected nodes
   function _applyEdgeFilter(mode) {
     const STRUCTURAL = EDGE_CATS.member;
     const hideStructural = mode === 'attacks';
+    const attackConnected = hideStructural ? _buildAttackConnected() : null;
 
-    // Build set of nodes that have at least one visible attack edge
-    const attackConnected = new Set();
-    if (hideStructural && window._btEdges) {
-      window._btEdges.forEach(e => {
-        if (!STRUCTURAL.has(e.edge)) {
-          attackConnected.add(typeof e.source === 'object' ? e.source.id : e.source);
-          attackConnected.add(typeof e.target === 'object' ? e.target.id : e.target);
-        }
-      });
+    // Use stored selections instead of global d3.selectAll
+    if (window._btLeftEdgeGs) {
+      window._btLeftEdgeGs.classed('edge-hidden', d => hideStructural && STRUCTURAL.has(d.edge));
+    }
+    if (window._btRightEdgeGs) {
+      window._btRightEdgeGs.classed('edge-hidden', d => hideStructural && STRUCTURAL.has(d.edge));
     }
 
-    // Toggle edge visibility on both panels
-    d3.selectAll('.edge-group').each(function(d) {
-      const isMember = STRUCTURAL.has(d.edge);
-      d3.select(this).classed('edge-hidden', hideStructural && isMember);
-    });
-
-    // Dim nodes with no attack edges (right panel only for enhanced view)
     if (window._btRightNodeGs) {
-      window._btRightNodeGs.classed('node-dimmed', d => {
-        return hideStructural && !attackConnected.has(d.id);
-      });
+      window._btRightNodeGs.classed('node-dimmed', d => hideStructural && attackConnected && !attackConnected.has(d.id));
     }
   }
 

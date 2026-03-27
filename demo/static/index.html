@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BloodTrail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://d3js.org">
   <link rel="stylesheet" href="/static/style.css">
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js" defer></script>
 </head>
 <body class="white-hot">
 
@@ -78,9 +81,10 @@
 
   <div class="bt-tooltip" id="tooltip"></div>
 
-  <script src="/static/graph.js"></script>
-  <script src="/static/enhance.js"></script>
+  <script src="/static/graph.js" defer></script>
+  <script src="/static/enhance.js" defer></script>
   <script>
+    document.addEventListener('DOMContentLoaded', () => {
     let currentData = null;
 
     async function loadSample() {
@@ -133,17 +137,19 @@
     }
 
     // Polarity toggle
-    document.getElementById('btn-wh').addEventListener('click', () => {
+    const btnWh = document.getElementById('btn-wh');
+    const btnBh = document.getElementById('btn-bh');
+    btnWh.addEventListener('click', () => {
       document.body.className = 'white-hot';
-      document.getElementById('btn-wh').classList.add('active');
-      document.getElementById('btn-bh').classList.remove('active');
+      btnWh.classList.add('active');
+      btnBh.classList.remove('active');
       BloodTrailEnhance.updateHeatTrailColors('white-hot');
     });
 
-    document.getElementById('btn-bh').addEventListener('click', () => {
+    btnBh.addEventListener('click', () => {
       document.body.className = 'black-hot';
-      document.getElementById('btn-bh').classList.add('active');
-      document.getElementById('btn-wh').classList.remove('active');
+      btnBh.classList.add('active');
+      btnWh.classList.remove('active');
       BloodTrailEnhance.updateHeatTrailColors('black-hot');
     });
 
@@ -194,25 +200,30 @@
       }
     }
 
-    // Edge filter toggle
-    document.querySelector('.edge-filter-toggle').addEventListener('click', (e) => {
+    // Edge filter toggle (event delegation — cached ref)
+    const edgeFilterEl = document.querySelector('.edge-filter-toggle');
+    const edgeFilterBtns = edgeFilterEl.querySelectorAll('button');
+    edgeFilterEl.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
-      document.querySelectorAll('.edge-filter-toggle button').forEach(b => b.classList.remove('active'));
+      edgeFilterBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       BloodTrailGraph.setEdgeFilter(btn.dataset.filter);
     });
 
-    // Layout toggle
-    document.querySelector('.layout-toggle').addEventListener('click', (e) => {
+    // Layout toggle (event delegation — cached ref)
+    const layoutEl = document.querySelector('.layout-toggle');
+    const layoutBtns = layoutEl.querySelectorAll('button');
+    layoutEl.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
-      document.querySelectorAll('.layout-toggle button').forEach(b => b.classList.remove('active'));
+      layoutBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       BloodTrailGraph.setLayout(btn.dataset.layout);
     });
 
     loadSample();
+    });
   </script>
 </body>
 </html>

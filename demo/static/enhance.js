@@ -25,8 +25,10 @@ const BloodTrailEnhance = (() => {
     _createHeatDefs(defs);
 
     if (window._btRightNodeGs) {
+      // Pre-compute all severities in one pass instead of O(nodes * edges) per node
+      const severityMap = _buildSeverityMap(data);
       window._btRightNodeGs.each(function(d) {
-        const severity = _nodeSeverity(d, data);
+        const severity = severityMap.get(d.id) || 0;
         if (severity > 0) _addHeatTrails(d3.select(this), d, severity);
       });
     }
@@ -55,17 +57,25 @@ const BloodTrailEnhance = (() => {
       .append('feGaussianBlur').attr('stdDeviation', 1.5);
   }
 
-  function _nodeSeverity(node, data) {
-    if (node.label === 'Domain' || node.props?.admincount) return 3;
-    const isQuickWin = (data.quick_wins || []).some(q => q.node === node.id);
-    if (isQuickWin) return 3;
-    const inChain = (data.chains || []).some(ch =>
-      ch.steps.some(s => s.from === node.id || s.to === node.id));
-    if (inChain) return 2;
-    const hasExploitableEdge = (data.edges || []).some(e =>
-      (e.target_id === node.id) && e.edge !== 'MemberOf' && e.edge !== 'Contains');
-    if (hasExploitableEdge) return 1;
-    return 0;
+  // Single-pass severity computation — replaces per-node _nodeSeverity
+  function _buildSeverityMap(data) {
+    const map = new Map();
+    const set = (id, level) => { map.set(id, Math.max(map.get(id) || 0, level)); };
+
+    // Level 1: nodes with exploitable inbound edges
+    (data.edges || []).forEach(e => {
+      if (e.edge !== 'MemberOf' && e.edge !== 'Contains') set(e.target_id, 1);
+    });
+    // Level 2: nodes in any chain
+    (data.chains || []).forEach(ch => {
+      ch.steps.forEach(s => { if (s.from) set(s.from, 2); if (s.to) set(s.to, 2); });
+    });
+    // Level 3: quick wins, domains, admin accounts
+    (data.quick_wins || []).forEach(q => set(q.node, 3));
+    (data.nodes || []).forEach(n => {
+      if (n.label === 'Domain' || n.props?.admincount) set(n.id, 3);
+    });
+    return map;
   }
 
   function _getNodeRadius(g) {
@@ -164,9 +174,11 @@ const BloodTrailEnhance = (() => {
     });
   }
 
+  let _chainItemEls = [];
+
   function buildChainSidebar(chains) {
     const sidebar = document.getElementById('chain-sidebar');
-    if (!chains.length) { sidebar.innerHTML = ''; return; }
+    if (!chains.length) { sidebar.innerHTML = ''; _chainItemEls = []; return; }
 
     const sevWeight = { critical: 0, high: 1, medium: 2 };
     sortedChains = [...chains].sort((a, b) => {
@@ -182,7 +194,8 @@ const BloodTrailEnhance = (() => {
         </div>
       `).join('');
 
-    sidebar.querySelectorAll('.chain-item').forEach(el => {
+    _chainItemEls = [...sidebar.querySelectorAll('.chain-item')];
+    _chainItemEls.forEach(el => {
       el.addEventListener('click', () => highlightChain(el.dataset.chain));
     });
   }
@@ -192,7 +205,7 @@ const BloodTrailEnhance = (() => {
     const isToggle = activeChainId === chainId;
     activeChainId = isToggle ? null : chainId;
 
-    document.querySelectorAll('.chain-item').forEach(el => {
+    _chainItemEls.forEach(el => {
       el.classList.toggle('active', el.dataset.chain === activeChainId);
     });
 

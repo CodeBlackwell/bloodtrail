@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Oxanium:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Oxanium:wght@600;700&display=swap&font-display=swap');
 
 /* White-Hot (dark mode) — default */
 body.white-hot {
@@ -256,7 +256,7 @@ header {
   flex-shrink: 0;
 }
 
-.panel svg { width: 100%; height: 100%; display: block; }
+.panel svg { width: 100%; height: 100%; display: block; contain: layout style; }
 
 /* === NODES === */
 
@@ -333,6 +333,7 @@ header {
   stroke-width: 3.5;
   opacity: 1;
   animation: heat-conduction 2s linear infinite;
+  will-change: stroke-dashoffset;
 }
 
 /* Edge labels */
@@ -396,6 +397,7 @@ header {
 .heat-trail {
   stroke-dasharray: 1;
   animation: heat-radiate 2.5s ease-out forwards;
+  will-change: stroke-dashoffset, opacity;
 }
 
 .trail-2 { animation-delay: 0.4s; }
@@ -515,6 +517,8 @@ header {
   z-index: 15;
   transform: translateY(100%);
   transition: transform 0.3s ease;
+  will-change: transform;
+  contain: layout style;
 }
 
 .execution-chain.visible { transform: translateY(0); }

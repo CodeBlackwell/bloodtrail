@@ -3,9 +3,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 
 # Allow importing bloodtrail from parent directory
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -14,6 +15,15 @@ from parser import parse_upload
 from analyzer import analyze
 
 app = FastAPI(title="BloodTrail Demo")
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+
+@app.middleware("http")
+async def cache_static(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
 
 DEMO_DIR = Path(__file__).resolve().parent
 SAMPLE_PATH = DEMO_DIR / "data" / "sample_ad.json"

@@ -27,10 +27,12 @@ from .wizard import WizardCommands
 from .enumerate import EnumerateCommands
 from .import_data import ImportDataCommands
 from .analyze import AnalyzeCommands
+from .ui import UICommands
 from ..parser import InputMode, detect_input_mode
 
 # All command groups in order of priority for handling
 COMMAND_GROUPS = [
+    UICommands,
     QueryCommands,
     PwnedCommands,
     ConfigCommands,
@@ -52,6 +54,7 @@ __all__ = [
     "SprayCommands",
     "CredsCommands",
     "AnalyzeCommands",
+    "UICommands",
     "WizardCommands",
     "EnumerateCommands",
     "ImportDataCommands",

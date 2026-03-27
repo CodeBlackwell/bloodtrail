@@ -24,6 +24,7 @@ from .commands import (
     CredsCommands,
     EnumerateCommands,
     ImportDataCommands,
+    UICommands,
     InputMode,
     detect_input_mode,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "CredsCommands",
     "EnumerateCommands",
     "ImportDataCommands",
+    "UICommands",
     # Utilities
     "InputMode",
     "detect_input_mode",

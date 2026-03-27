@@ -39,6 +39,11 @@ def get_sample():
     return _sample_data
 
 
+def set_data(data):
+    global _sample_data
+    _sample_data = data
+
+
 @app.get("/api/sample")
 def api_sample():
     return get_sample()

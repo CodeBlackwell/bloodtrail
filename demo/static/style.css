@@ -212,6 +212,22 @@ header {
   color: #ff4444;
 }
 
+.download-btn {
+  font: 500 0.7rem 'Inter', sans-serif;
+  padding: 0.3rem 0.75rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--text-faint);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.download-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text);
+}
+
 /* Split View */
 .split-view {
   flex: 1;

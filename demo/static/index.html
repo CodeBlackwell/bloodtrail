@@ -16,6 +16,7 @@
     <div class="header-left">
       <span class="logo">BLOODTRAIL</span>
       <button class="upload-btn" id="btn-upload">Upload SharpHound</button>
+      <button class="download-btn" id="btn-download">Download Results</button>
     </div>
     <div class="header-controls">
       <div class="edge-filter-toggle">
@@ -152,6 +153,95 @@
       btnWh.classList.remove('active');
       BloodTrailEnhance.updateHeatTrailColors('black-hot');
     });
+
+    // Download results — raw SharpHound data + BloodTrail-enhanced analysis
+    document.getElementById('btn-download').addEventListener('click', async () => {
+      if (!currentData) return;
+
+      const raw = { meta: currentData.meta, nodes: currentData.nodes, edges: currentData.edges };
+      const enhanced = currentData;
+
+      // Use JSZip-free minimal ZIP builder
+      const zip = buildZip({
+        'sharphound-raw.json': JSON.stringify(raw, null, 2),
+        'bloodtrail-enhanced.json': JSON.stringify(enhanced, null, 2),
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(zip);
+      a.download = 'bloodtrail-results.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // Minimal ZIP builder — no dependencies
+    function buildZip(files) {
+      const entries = Object.entries(files);
+      const encoder = new TextEncoder();
+      const parts = [];
+      const directory = [];
+      let offset = 0;
+
+      for (const [name, content] of entries) {
+        const nameBytes = encoder.encode(name);
+        const dataBytes = encoder.encode(content);
+        const crc = crc32(dataBytes);
+
+        // Local file header
+        const local = new Uint8Array(30 + nameBytes.length);
+        const lv = new DataView(local.buffer);
+        lv.setUint32(0, 0x04034b50, true);  // signature
+        lv.setUint16(4, 20, true);           // version needed
+        lv.setUint16(8, 8, true);            // UTF-8 flag
+        lv.setUint32(14, crc, true);
+        lv.setUint32(18, dataBytes.length, true);  // compressed
+        lv.setUint32(22, dataBytes.length, true);  // uncompressed
+        lv.setUint16(26, nameBytes.length, true);
+        local.set(nameBytes, 30);
+
+        // Central directory entry
+        const central = new Uint8Array(46 + nameBytes.length);
+        const cv = new DataView(central.buffer);
+        cv.setUint32(0, 0x02014b50, true);
+        cv.setUint16(4, 20, true);
+        cv.setUint16(6, 20, true);
+        cv.setUint16(10, 8, true);
+        cv.setUint32(16, crc, true);
+        cv.setUint32(20, dataBytes.length, true);
+        cv.setUint32(24, dataBytes.length, true);
+        cv.setUint16(28, nameBytes.length, true);
+        cv.setUint32(42, offset, true);
+        central.set(nameBytes, 46);
+
+        parts.push(local, dataBytes);
+        directory.push(central);
+        offset += local.length + dataBytes.length;
+      }
+
+      const dirOffset = offset;
+      let dirSize = 0;
+      for (const d of directory) { parts.push(d); dirSize += d.length; }
+
+      // End of central directory
+      const end = new Uint8Array(22);
+      const ev = new DataView(end.buffer);
+      ev.setUint32(0, 0x06054b50, true);
+      ev.setUint16(8, entries.length, true);
+      ev.setUint16(10, entries.length, true);
+      ev.setUint32(12, dirSize, true);
+      ev.setUint32(16, dirOffset, true);
+      parts.push(end);
+
+      return new Blob(parts, { type: 'application/zip' });
+    }
+
+    function crc32(bytes) {
+      let crc = ~0;
+      for (let i = 0; i < bytes.length; i++) {
+        crc ^= bytes[i];
+        for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+      }
+      return (~crc) >>> 0;
+    }
 
     // Upload
     const overlay = document.getElementById('upload-overlay');

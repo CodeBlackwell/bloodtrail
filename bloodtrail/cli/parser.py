@@ -120,6 +120,7 @@ Supported Edge Types:
     _add_spray_options(parser)
     _add_creds_pipeline_options(parser)
     _add_analyze_options(parser)
+    _add_ui_options(parser)
 
     return parser
 
@@ -757,6 +758,22 @@ def _add_creds_pipeline_options(parser: argparse.ArgumentParser) -> None:
         type=Path,
         metavar="DIR",
         help="BloodHound output directory",
+    )
+
+
+def _add_ui_options(parser: argparse.ArgumentParser) -> None:
+    """Add web UI options."""
+    ui_group = parser.add_argument_group("Web UI")
+    ui_group.add_argument(
+        "--ui",
+        action="store_true",
+        help="Launch interactive web UI for visual attack path analysis",
+    )
+    ui_group.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for web UI server (default: 8765)",
     )
 
 

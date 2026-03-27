@@ -1,0 +1,1554 @@
+{
+  "meta": {
+    "name": "NORTH.SEVENKINGDOMS.LOCAL",
+    "description": "Augmented GOADv2 NORTH domain \u2014 BloodTrail demo dataset",
+    "source": "GOADv2 (m4lwhere/Bloodhound-CE-Sample-Data) + synthetic augmentation",
+    "node_count": 38,
+    "edge_count": 69,
+    "chain_count": 12
+  },
+  "nodes": [
+    {
+      "id": "domain-north",
+      "label": "Domain",
+      "name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "functionallevel": "2016",
+        "collected": true
+      }
+    },
+    {
+      "id": "comp-winterfell",
+      "label": "Computer",
+      "name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "os": "Windows Server 2019",
+        "enabled": true,
+        "unconstraineddelegation": true,
+        "is_dc": true
+      }
+    },
+    {
+      "id": "comp-castelblack",
+      "label": "Computer",
+      "name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "os": "Windows Server 2019",
+        "enabled": true,
+        "unconstraineddelegation": false,
+        "is_dc": false
+      }
+    },
+    {
+      "id": "comp-dreadfort",
+      "label": "Computer",
+      "name": "DREADFORT.NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "os": "Windows Server 2019",
+        "enabled": true,
+        "unconstraineddelegation": false,
+        "is_dc": false
+      }
+    },
+    {
+      "id": "comp-moat-cailin",
+      "label": "Computer",
+      "name": "MOAT-CAILIN.NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "os": "Windows Server 2016",
+        "enabled": true,
+        "unconstraineddelegation": false,
+        "is_dc": false,
+        "haslaps": true
+      }
+    },
+    {
+      "id": "user-eddard",
+      "label": "User",
+      "name": "EDDARD.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": true,
+        "title": "Lord of Winterfell"
+      }
+    },
+    {
+      "id": "user-robb",
+      "label": "User",
+      "name": "ROBB.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": true,
+        "title": "King in the North"
+      }
+    },
+    {
+      "id": "user-jon",
+      "label": "User",
+      "name": "JON.SNOW@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "title": "Lord Commander"
+      }
+    },
+    {
+      "id": "user-arya",
+      "label": "User",
+      "name": "ARYA.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-sansa",
+      "label": "User",
+      "name": "SANSA.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-brandon",
+      "label": "User",
+      "name": "BRANDON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-catelyn",
+      "label": "User",
+      "name": "CATELYN.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": true
+      }
+    },
+    {
+      "id": "user-hodor",
+      "label": "User",
+      "name": "HODOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-samwell",
+      "label": "User",
+      "name": "SAMWELL.TARLY@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-jeor",
+      "label": "User",
+      "name": "JEOR.MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-rickon",
+      "label": "User",
+      "name": "RICKON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false
+      }
+    },
+    {
+      "id": "user-admin",
+      "label": "User",
+      "name": "ADMINISTRATOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": true
+      }
+    },
+    {
+      "id": "user-sqlsvc",
+      "label": "User",
+      "name": "SQL_SVC@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "serviceprincipalnames": [
+          "MSSQL/CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL:1433",
+          "MSSQL/CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL"
+        ]
+      }
+    },
+    {
+      "id": "user-theon",
+      "label": "User",
+      "name": "THEON.GREYJOY@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "dontreqpreauth": true,
+        "title": "Ward of Winterfell"
+      }
+    },
+    {
+      "id": "user-luwin",
+      "label": "User",
+      "name": "MAESTER.LUWIN@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "title": "Maester of Winterfell"
+      }
+    },
+    {
+      "id": "user-raven",
+      "label": "User",
+      "name": "SVC_RAVEN@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "description": "Raven message relay service"
+      }
+    },
+    {
+      "id": "group-da",
+      "label": "Group",
+      "name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "admincount": true
+      }
+    },
+    {
+      "id": "group-nightwatch",
+      "label": "Group",
+      "name": "NIGHT WATCH@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-stark",
+      "label": "Group",
+      "name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-mormont",
+      "label": "Group",
+      "name": "MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-dnsadmins",
+      "label": "Group",
+      "name": "DNSADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-domainusers",
+      "label": "Group",
+      "name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-ravens",
+      "label": "Group",
+      "name": "RAVEN KEEPERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "description": "Raven message relay operators"
+      }
+    },
+    {
+      "id": "group-builders",
+      "label": "Group",
+      "name": "BUILDERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-stewards",
+      "label": "Group",
+      "name": "STEWARDS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "group-accountops",
+      "label": "Group",
+      "name": "ACCOUNT OPERATORS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    },
+    {
+      "id": "comp-deepwood",
+      "label": "Computer",
+      "name": "DEEPWOOD.NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "os": "Windows Server 2016",
+        "enabled": true,
+        "unconstraineddelegation": false,
+        "is_dc": false,
+        "allowedtodelegate": [
+          "cifs/WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL"
+        ]
+      }
+    },
+    {
+      "id": "user-osha",
+      "label": "User",
+      "name": "OSHA@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "title": "Wildling servant"
+      }
+    },
+    {
+      "id": "user-rodrik",
+      "label": "User",
+      "name": "RODRIK.CASSEL@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "enabled": true,
+        "admincount": false,
+        "title": "Master-at-Arms"
+      }
+    },
+    {
+      "id": "domain-seven",
+      "label": "Domain",
+      "name": "SEVENKINGDOMS.LOCAL",
+      "props": {
+        "functionallevel": "2016",
+        "collected": true
+      }
+    },
+    {
+      "id": "group-ea",
+      "label": "Group",
+      "name": "ENTERPRISE ADMINS@SEVENKINGDOMS.LOCAL",
+      "props": {
+        "admincount": true
+      }
+    },
+    {
+      "id": "comp-kingslanding",
+      "label": "Computer",
+      "name": "KINGSLANDING.SEVENKINGDOMS.LOCAL",
+      "props": {
+        "os": "Windows Server 2019",
+        "enabled": true,
+        "unconstraineddelegation": true,
+        "is_dc": true
+      }
+    },
+    {
+      "id": "group-backupops",
+      "label": "Group",
+      "name": "BACKUP OPERATORS@NORTH.SEVENKINGDOMS.LOCAL",
+      "props": {}
+    }
+  ],
+  "edges": [
+    {
+      "source_id": "user-sqlsvc",
+      "source_name": "SQL_SVC@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AdminTo",
+      "props": {}
+    },
+    {
+      "source_id": "user-eddard",
+      "source_name": "EDDARD.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-eddard",
+      "source_name": "EDDARD.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "GetChanges",
+      "props": {}
+    },
+    {
+      "source_id": "user-eddard",
+      "source_name": "EDDARD.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "GetChangesAll",
+      "props": {}
+    },
+    {
+      "source_id": "user-theon",
+      "source_name": "THEON.GREYJOY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "GenericAll",
+      "props": {}
+    },
+    {
+      "source_id": "group-stark",
+      "source_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "group-da",
+      "target_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "GenericAll",
+      "props": {}
+    },
+    {
+      "source_id": "user-raven",
+      "source_name": "SVC_RAVEN@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-ravens",
+      "target_name": "RAVEN KEEPERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "group-ravens",
+      "source_name": "RAVEN KEEPERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "WriteDacl",
+      "props": {}
+    },
+    {
+      "source_id": "user-jon",
+      "source_name": "JON.SNOW@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-dreadfort",
+      "target_name": "DREADFORT.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "WriteAccountRestrictions",
+      "props": {}
+    },
+    {
+      "source_id": "user-arya",
+      "source_name": "ARYA.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "user-catelyn",
+      "target_name": "CATELYN.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "User",
+      "edge": "AddKeyCredentialLink",
+      "props": {}
+    },
+    {
+      "source_id": "user-luwin",
+      "source_name": "MAESTER.LUWIN@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-dnsadmins",
+      "target_name": "DNSADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-eddard",
+      "source_name": "EDDARD.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-da",
+      "target_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-admin",
+      "source_name": "ADMINISTRATOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-da",
+      "target_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-robb",
+      "source_name": "ROBB.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-da",
+      "target_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-jon",
+      "source_name": "JON.SNOW@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-nightwatch",
+      "target_name": "NIGHT WATCH@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-samwell",
+      "source_name": "SAMWELL.TARLY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-nightwatch",
+      "target_name": "NIGHT WATCH@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-jeor",
+      "source_name": "JEOR.MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-nightwatch",
+      "target_name": "NIGHT WATCH@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-eddard",
+      "source_name": "EDDARD.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-robb",
+      "source_name": "ROBB.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-arya",
+      "source_name": "ARYA.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-sansa",
+      "source_name": "SANSA.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-brandon",
+      "source_name": "BRANDON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-rickon",
+      "source_name": "RICKON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-catelyn",
+      "source_name": "CATELYN.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stark",
+      "target_name": "STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-jeor",
+      "source_name": "JEOR.MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-mormont",
+      "target_name": "MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-hodor",
+      "source_name": "HODOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-theon",
+      "source_name": "THEON.GREYJOY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-luwin",
+      "source_name": "MAESTER.LUWIN@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-sqlsvc",
+      "source_name": "SQL_SVC@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-raven",
+      "source_name": "SVC_RAVEN@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-hodor",
+      "source_name": "HODOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-builders",
+      "target_name": "BUILDERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-brandon",
+      "source_name": "BRANDON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-builders",
+      "target_name": "BUILDERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-samwell",
+      "source_name": "SAMWELL.TARLY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stewards",
+      "target_name": "STEWARDS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-rickon",
+      "source_name": "RICKON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stewards",
+      "target_name": "STEWARDS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "group-da",
+      "source_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "comp-winterfell",
+      "target_name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AdminTo",
+      "props": {}
+    },
+    {
+      "source_id": "group-da",
+      "source_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AdminTo",
+      "props": {}
+    },
+    {
+      "source_id": "group-da",
+      "source_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "comp-dreadfort",
+      "target_name": "DREADFORT.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AdminTo",
+      "props": {}
+    },
+    {
+      "source_id": "group-da",
+      "source_name": "DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "comp-moat-cailin",
+      "target_name": "MOAT-CAILIN.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AdminTo",
+      "props": {}
+    },
+    {
+      "source_id": "user-jon",
+      "source_name": "JON.SNOW@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "CanPSRemote",
+      "props": {}
+    },
+    {
+      "source_id": "group-nightwatch",
+      "source_name": "NIGHT WATCH@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "CanRDP",
+      "props": {}
+    },
+    {
+      "source_id": "user-robb",
+      "source_name": "ROBB.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-winterfell",
+      "target_name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-jon",
+      "source_name": "JON.SNOW@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-sqlsvc",
+      "source_name": "SQL_SVC@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-castelblack",
+      "target_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-theon",
+      "source_name": "THEON.GREYJOY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-dreadfort",
+      "target_name": "DREADFORT.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-hodor",
+      "source_name": "HODOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-winterfell",
+      "target_name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-sansa",
+      "source_name": "SANSA.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "user-hodor",
+      "target_name": "HODOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "User",
+      "edge": "ForceChangePassword",
+      "props": {}
+    },
+    {
+      "source_id": "user-brandon",
+      "source_name": "BRANDON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "user-rickon",
+      "target_name": "RICKON.STARK@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "User",
+      "edge": "GenericWrite",
+      "props": {}
+    },
+    {
+      "source_id": "user-samwell",
+      "source_name": "SAMWELL.TARLY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-stewards",
+      "target_name": "STEWARDS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "AddSelf",
+      "props": {}
+    },
+    {
+      "source_id": "user-hodor",
+      "source_name": "HODOR@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-builders",
+      "target_name": "BUILDERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "WriteOwner",
+      "props": {}
+    },
+    {
+      "source_id": "group-nightwatch",
+      "source_name": "NIGHT WATCH@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "comp-moat-cailin",
+      "target_name": "MOAT-CAILIN.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "ReadLAPSPassword",
+      "props": {}
+    },
+    {
+      "source_id": "comp-winterfell",
+      "source_name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "comp-castelblack",
+      "source_name": "CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "comp-dreadfort",
+      "source_name": "DREADFORT.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "comp-moat-cailin",
+      "source_name": "MOAT-CAILIN.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "comp-deepwood",
+      "source_name": "DEEPWOOD.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "domain-north",
+      "target_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "user-samwell",
+      "source_name": "SAMWELL.TARLY@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-accountops",
+      "target_name": "ACCOUNT OPERATORS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "group-accountops",
+      "source_name": "ACCOUNT OPERATORS@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "group-ravens",
+      "target_name": "RAVEN KEEPERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "GenericAll",
+      "props": {}
+    },
+    {
+      "source_id": "user-osha",
+      "source_name": "OSHA@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "user-rodrik",
+      "target_name": "RODRIK.CASSEL@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "User",
+      "edge": "GenericWrite",
+      "props": {}
+    },
+    {
+      "source_id": "user-rodrik",
+      "source_name": "RODRIK.CASSEL@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-dreadfort",
+      "target_name": "DREADFORT.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AdminTo",
+      "props": {}
+    },
+    {
+      "source_id": "user-rodrik",
+      "source_name": "RODRIK.CASSEL@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "user-osha",
+      "source_name": "OSHA@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-domainusers",
+      "target_name": "DOMAIN USERS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    },
+    {
+      "source_id": "domain-north",
+      "source_name": "NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Domain",
+      "target_id": "domain-seven",
+      "target_name": "SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "TrustedBy",
+      "props": {}
+    },
+    {
+      "source_id": "comp-kingslanding",
+      "source_name": "KINGSLANDING.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "domain-seven",
+      "target_name": "SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "group-ea",
+      "source_name": "ENTERPRISE ADMINS@SEVENKINGDOMS.LOCAL",
+      "source_label": "Group",
+      "target_id": "domain-seven",
+      "target_name": "SEVENKINGDOMS.LOCAL",
+      "target_label": "Domain",
+      "edge": "Contains",
+      "props": {}
+    },
+    {
+      "source_id": "comp-winterfell",
+      "source_name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "comp-kingslanding",
+      "target_name": "KINGSLANDING.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "CoerceToTGT",
+      "props": {}
+    },
+    {
+      "source_id": "comp-deepwood",
+      "source_name": "DEEPWOOD.NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "Computer",
+      "target_id": "comp-winterfell",
+      "target_name": "WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "AllowedToDelegate",
+      "props": {}
+    },
+    {
+      "source_id": "user-jon",
+      "source_name": "JON.SNOW@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-deepwood",
+      "target_name": "DEEPWOOD.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "CanPSRemote",
+      "props": {}
+    },
+    {
+      "source_id": "user-jeor",
+      "source_name": "JEOR.MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "comp-deepwood",
+      "target_name": "DEEPWOOD.NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Computer",
+      "edge": "HasSession",
+      "props": {}
+    },
+    {
+      "source_id": "user-jeor",
+      "source_name": "JEOR.MORMONT@NORTH.SEVENKINGDOMS.LOCAL",
+      "source_label": "User",
+      "target_id": "group-backupops",
+      "target_name": "BACKUP OPERATORS@NORTH.SEVENKINGDOMS.LOCAL",
+      "target_label": "Group",
+      "edge": "MemberOf",
+      "props": {}
+    }
+  ],
+  "chains": [
+    {
+      "id": "chain-kerberoast-dcsync",
+      "name": "Kerberoast \u2192 Admin \u2192 Session Harvest \u2192 DCSync",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "Kerberoast",
+          "from": "user-sqlsvc",
+          "description": "Crack SQL_SVC SPN ticket offline"
+        },
+        {
+          "action": "AdminTo",
+          "from": "user-sqlsvc",
+          "to": "comp-castelblack",
+          "description": "Local admin access to CASTELBLACK"
+        },
+        {
+          "action": "HasSession",
+          "from": "user-eddard",
+          "to": "comp-castelblack",
+          "description": "Harvest EDDARD.STARK credentials from memory"
+        },
+        {
+          "action": "DCSync",
+          "from": "user-eddard",
+          "to": "domain-north",
+          "description": "DCSync all domain hashes as Domain Admin"
+        }
+      ]
+    },
+    {
+      "id": "chain-asrep-da",
+      "name": "AS-REP Roast \u2192 GenericAll Chain \u2192 Domain Admin",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "AS-REP Roast",
+          "from": "user-theon",
+          "description": "Crack THEON.GREYJOY AS-REP hash offline"
+        },
+        {
+          "action": "GenericAll",
+          "from": "user-theon",
+          "to": "group-stark",
+          "description": "Full control over STARK group"
+        },
+        {
+          "action": "GenericAll",
+          "from": "group-stark",
+          "to": "group-da",
+          "description": "STARK group has full control over Domain Admins"
+        },
+        {
+          "action": "AddMember",
+          "from": "user-theon",
+          "to": "group-da",
+          "description": "Add self to Domain Admins"
+        }
+      ]
+    },
+    {
+      "id": "chain-writedacl-dcsync",
+      "name": "WriteDACL \u2192 Grant DCSync \u2192 Full Domain Compromise",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "Compromise",
+          "from": "user-raven",
+          "description": "Compromise SVC_RAVEN service account"
+        },
+        {
+          "action": "MemberOf",
+          "from": "user-raven",
+          "to": "group-ravens",
+          "description": "SVC_RAVEN is member of RAVEN KEEPERS"
+        },
+        {
+          "action": "WriteDacl",
+          "from": "group-ravens",
+          "to": "domain-north",
+          "description": "RAVEN KEEPERS can modify domain DACL"
+        },
+        {
+          "action": "DCSync",
+          "from": "user-raven",
+          "to": "domain-north",
+          "description": "Grant self DCSync rights, dump all hashes"
+        }
+      ]
+    },
+    {
+      "id": "chain-rbcd",
+      "name": "RBCD via WriteAccountRestrictions",
+      "severity": "high",
+      "steps": [
+        {
+          "action": "WriteAccountRestrictions",
+          "from": "user-jon",
+          "to": "comp-dreadfort",
+          "description": "JON.SNOW can modify msDS-AllowedToActOnBehalfOfOtherIdentity"
+        },
+        {
+          "action": "RBCD",
+          "from": "user-jon",
+          "to": "comp-dreadfort",
+          "description": "Configure RBCD, request S4U2Proxy ticket"
+        },
+        {
+          "action": "AdminTo",
+          "from": "user-jon",
+          "to": "comp-dreadfort",
+          "description": "Impersonate admin, get SYSTEM on DREADFORT"
+        }
+      ]
+    },
+    {
+      "id": "chain-shadow-creds",
+      "name": "Shadow Credentials \u2192 Domain Admin",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "AddKeyCredentialLink",
+          "from": "user-arya",
+          "to": "user-catelyn",
+          "description": "Add shadow credential to CATELYN.STARK"
+        },
+        {
+          "action": "Authenticate",
+          "from": "user-arya",
+          "description": "Request TGT as CATELYN using shadow credential"
+        },
+        {
+          "action": "MemberOf",
+          "from": "user-catelyn",
+          "to": "group-stark",
+          "description": "CATELYN is in STARK group"
+        },
+        {
+          "action": "GenericAll",
+          "from": "group-stark",
+          "to": "group-da",
+          "description": "STARK \u2192 DA escalation"
+        }
+      ]
+    },
+    {
+      "id": "chain-dnsadmins",
+      "name": "DnsAdmins \u2192 DC Compromise",
+      "severity": "high",
+      "steps": [
+        {
+          "action": "MemberOf",
+          "from": "user-luwin",
+          "to": "group-dnsadmins",
+          "description": "MAESTER.LUWIN is DnsAdmins member"
+        },
+        {
+          "action": "DnsAdmin DLL",
+          "from": "user-luwin",
+          "to": "comp-winterfell",
+          "description": "Load malicious DLL via dnscmd on DC"
+        },
+        {
+          "action": "SYSTEM",
+          "from": "user-luwin",
+          "to": "comp-winterfell",
+          "description": "SYSTEM shell on domain controller"
+        }
+      ]
+    },
+    {
+      "id": "chain-accountops-exchange-dcsync",
+      "name": "Account Operators \u2192 Exchange Group \u2192 WriteDACL \u2192 DCSync",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "MemberOf",
+          "from": "user-samwell",
+          "to": "group-accountops",
+          "description": "SAMWELL.TARLY is Account Operators member"
+        },
+        {
+          "action": "CreateUser",
+          "from": "user-samwell",
+          "description": "Account Operators can create domain users"
+        },
+        {
+          "action": "GenericAll",
+          "from": "group-accountops",
+          "to": "group-ravens",
+          "description": "Account Operators has GenericAll on RAVEN KEEPERS"
+        },
+        {
+          "action": "AddMember",
+          "from": "user-samwell",
+          "to": "group-ravens",
+          "description": "Add fake user to RAVEN KEEPERS"
+        },
+        {
+          "action": "WriteDacl",
+          "from": "group-ravens",
+          "to": "domain-north",
+          "description": "RAVEN KEEPERS has WriteDACL on domain"
+        },
+        {
+          "action": "GrantDCSync",
+          "from": "user-samwell",
+          "to": "domain-north",
+          "description": "Grant fake user DCSync rights via DACL edit"
+        },
+        {
+          "action": "DCSync",
+          "from": "user-samwell",
+          "to": "domain-north",
+          "description": "Dump all domain hashes with secretsdump"
+        }
+      ]
+    },
+    {
+      "id": "chain-targeted-kerberoast",
+      "name": "GenericWrite \u2192 Targeted Kerberoast \u2192 Pivot \u2192 Session Harvest",
+      "severity": "high",
+      "steps": [
+        {
+          "action": "GenericWrite",
+          "from": "user-osha",
+          "to": "user-rodrik",
+          "description": "OSHA has GenericWrite on RODRIK.CASSEL"
+        },
+        {
+          "action": "SetSPN",
+          "from": "user-osha",
+          "to": "user-rodrik",
+          "description": "Set fake SPN on RODRIK (targeted kerberoast setup)"
+        },
+        {
+          "action": "Kerberoast",
+          "from": "user-osha",
+          "description": "Request TGS for RODRIK's new SPN, crack offline"
+        },
+        {
+          "action": "AdminTo",
+          "from": "user-rodrik",
+          "to": "comp-dreadfort",
+          "description": "RODRIK has local admin on DREADFORT"
+        },
+        {
+          "action": "HasSession",
+          "from": "user-theon",
+          "to": "comp-dreadfort",
+          "description": "Harvest THEON.GREYJOY session from DREADFORT"
+        }
+      ]
+    },
+    {
+      "id": "chain-unconstrained-coercion",
+      "name": "Unconstrained Delegation + PetitPotam Coercion \u2192 Forest Compromise",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "Compromise",
+          "from": "user-eddard",
+          "to": "comp-winterfell",
+          "description": "Gain access to WINTERFELL (DA or any chain above)"
+        },
+        {
+          "action": "Monitor",
+          "from": "comp-winterfell",
+          "description": "Start Rubeus monitor on WINTERFELL (unconstrained delegation)"
+        },
+        {
+          "action": "CoerceToTGT",
+          "from": "comp-winterfell",
+          "to": "comp-kingslanding",
+          "description": "PetitPotam coerce KINGSLANDING DC to authenticate to WINTERFELL"
+        },
+        {
+          "action": "CaptureTGT",
+          "from": "comp-winterfell",
+          "description": "Capture KINGSLANDING$ machine TGT via unconstrained delegation"
+        },
+        {
+          "action": "DCSync",
+          "from": "comp-winterfell",
+          "to": "domain-seven",
+          "description": "DCSync SEVENKINGDOMS.LOCAL using captured DC TGT"
+        },
+        {
+          "action": "ForestCompromise",
+          "from": "comp-winterfell",
+          "to": "group-ea",
+          "description": "Full forest compromise \u2014 Enterprise Admin across all domains"
+        }
+      ]
+    },
+    {
+      "id": "chain-constrained-delegation",
+      "name": "CanPSRemote \u2192 Constrained Delegation \u2192 DC Impersonation",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "CanPSRemote",
+          "from": "user-jon",
+          "to": "comp-deepwood",
+          "description": "JON.SNOW has PS Remoting access to DEEPWOOD"
+        },
+        {
+          "action": "ExtractKeys",
+          "from": "user-jon",
+          "to": "comp-deepwood",
+          "description": "Extract DEEPWOOD$ machine account hash"
+        },
+        {
+          "action": "S4U2Self",
+          "from": "comp-deepwood",
+          "description": "Request S4U2Self ticket as DEEPWOOD$"
+        },
+        {
+          "action": "S4U2Proxy",
+          "from": "comp-deepwood",
+          "to": "comp-winterfell",
+          "description": "S4U2Proxy to cifs/WINTERFELL impersonating Administrator"
+        },
+        {
+          "action": "AdminTo",
+          "from": "comp-deepwood",
+          "to": "comp-winterfell",
+          "description": "SYSTEM access on domain controller via constrained delegation"
+        }
+      ]
+    },
+    {
+      "id": "chain-backup-operators",
+      "name": "Backup Operators \u2192 Registry Hive Dump \u2192 Credential Extraction",
+      "severity": "high",
+      "steps": [
+        {
+          "action": "MemberOf",
+          "from": "user-jeor",
+          "to": "group-backupops",
+          "description": "JEOR.MORMONT is Backup Operators member"
+        },
+        {
+          "action": "BackupSAM",
+          "from": "user-jeor",
+          "to": "comp-winterfell",
+          "description": "Backup SAM and SYSTEM registry hives from DC"
+        },
+        {
+          "action": "ExtractHashes",
+          "from": "user-jeor",
+          "description": "Extract local admin NTLM hashes with secretsdump"
+        },
+        {
+          "action": "PassTheHash",
+          "from": "user-jeor",
+          "to": "comp-winterfell",
+          "description": "Pass-the-hash with extracted Administrator NTLM"
+        }
+      ]
+    },
+    {
+      "id": "chain-mega-convergent",
+      "name": "RBCD \u2192 AS-REP \u2192 ACL Chain \u2192 DA \u2192 Coercion \u2192 Forest Compromise",
+      "severity": "critical",
+      "steps": [
+        {
+          "action": "WriteAccountRestrictions",
+          "from": "user-jon",
+          "to": "comp-dreadfort",
+          "description": "JON.SNOW configures RBCD on DREADFORT"
+        },
+        {
+          "action": "RBCD",
+          "from": "user-jon",
+          "to": "comp-dreadfort",
+          "description": "S4U2Proxy impersonation \u2192 SYSTEM on DREADFORT"
+        },
+        {
+          "action": "HasSession",
+          "from": "user-theon",
+          "to": "comp-dreadfort",
+          "description": "Harvest THEON.GREYJOY credentials from DREADFORT memory"
+        },
+        {
+          "action": "AS-REP Roast",
+          "from": "user-theon",
+          "description": "Crack THEON offline (or use harvested creds directly)"
+        },
+        {
+          "action": "GenericAll",
+          "from": "user-theon",
+          "to": "group-stark",
+          "description": "THEON has full control over STARK group"
+        },
+        {
+          "action": "GenericAll",
+          "from": "group-stark",
+          "to": "group-da",
+          "description": "STARK group controls Domain Admins"
+        },
+        {
+          "action": "AddMember",
+          "from": "user-theon",
+          "to": "group-da",
+          "description": "Add JON to Domain Admins via STARK \u2192 DA chain"
+        },
+        {
+          "action": "Compromise",
+          "from": "user-jon",
+          "to": "comp-winterfell",
+          "description": "DA access to WINTERFELL (unconstrained delegation DC)"
+        },
+        {
+          "action": "CoerceToTGT",
+          "from": "comp-winterfell",
+          "to": "comp-kingslanding",
+          "description": "PetitPotam coerce forest root DC"
+        },
+        {
+          "action": "DCSync",
+          "from": "comp-winterfell",
+          "to": "domain-seven",
+          "description": "DCSync entire forest \u2014 full Enterprise Admin compromise"
+        }
+      ]
+    }
+  ],
+  "quick_wins": [
+    {
+      "type": "kerberoastable",
+      "node": "user-sqlsvc",
+      "name": "SQL_SVC",
+      "reason": "Has SPN: MSSQL/CASTELBLACK:1433"
+    },
+    {
+      "type": "asrep_roastable",
+      "node": "user-theon",
+      "name": "THEON.GREYJOY",
+      "reason": "DoNotRequirePreAuth is set"
+    },
+    {
+      "type": "unconstrained_delegation",
+      "node": "comp-winterfell",
+      "name": "WINTERFELL",
+      "reason": "Domain controller with unconstrained delegation"
+    },
+    {
+      "type": "dnsadmins_member",
+      "node": "user-luwin",
+      "name": "MAESTER.LUWIN",
+      "reason": "Member of DnsAdmins group"
+    },
+    {
+      "type": "writedacl_on_domain",
+      "node": "group-ravens",
+      "name": "RAVEN KEEPERS",
+      "reason": "WriteDACL on domain object \u2014 can grant DCSync"
+    },
+    {
+      "type": "shadow_credentials",
+      "node": "user-arya",
+      "name": "ARYA.STARK",
+      "reason": "AddKeyCredentialLink on CATELYN.STARK (Domain Admin path)"
+    },
+    {
+      "type": "rbcd_writable",
+      "node": "user-jon",
+      "name": "JON.SNOW",
+      "reason": "WriteAccountRestrictions on DREADFORT"
+    },
+    {
+      "type": "laps_readable",
+      "node": "group-nightwatch",
+      "name": "NIGHT WATCH",
+      "reason": "ReadLAPSPassword on MOAT-CAILIN"
+    },
+    {
+      "type": "constrained_delegation",
+      "node": "comp-deepwood",
+      "name": "DEEPWOOD",
+      "reason": "Constrained delegation to cifs/WINTERFELL (DC)"
+    },
+    {
+      "type": "account_operators",
+      "node": "user-samwell",
+      "name": "SAMWELL.TARLY",
+      "reason": "Account Operators member \u2014 can create users and modify groups"
+    },
+    {
+      "type": "backup_operators",
+      "node": "user-jeor",
+      "name": "JEOR.MORMONT",
+      "reason": "Backup Operators member \u2014 can dump SAM/SYSTEM hives"
+    },
+    {
+      "type": "cross_domain_trust",
+      "node": "domain-north",
+      "name": "NORTH \u2192 SEVENKINGDOMS",
+      "reason": "Bidirectional trust to forest root \u2014 coercion path to Enterprise Admin"
+    },
+    {
+      "type": "targeted_kerberoast",
+      "node": "user-osha",
+      "name": "OSHA",
+      "reason": "GenericWrite on RODRIK.CASSEL \u2014 can set SPN for targeted kerberoast"
+    }
+  ]
+}

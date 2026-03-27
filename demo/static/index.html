@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BloodTrail</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body class="white-hot">
+
+  <header>
+    <span class="logo">BLOODTRAIL</span>
+    <div class="header-controls">
+      <div class="polarity-toggle">
+        <button id="btn-wh" class="active">WH</button>
+        <button id="btn-bh">BH</button>
+      </div>
+      <button class="upload-btn" id="btn-upload">Upload SharpHound</button>
+    </div>
+  </header>
+
+  <main class="split-view">
+    <section class="panel" id="left-panel">
+      <span class="panel-label">BLOODHOUND RAW</span>
+      <svg id="left-svg"></svg>
+      <div class="legend" id="legend-left">
+        <div class="legend-section">
+          <div class="legend-item"><svg width="10" height="10" viewBox="-8 -8 16 16"><polygon points="0,-7 6.7,3.5 -6.7,3.5" fill="var(--node-da)"/></svg>Domain</div>
+          <div class="legend-item"><svg width="10" height="10" viewBox="-8 -8 16 16"><rect x="-5" y="-5" width="10" height="10" fill="var(--node-computer)"/></svg>Computer</div>
+          <div class="legend-item"><svg width="10" height="10" viewBox="-8 -8 16 16"><polygon points="0,-6 6,0 0,6 -6,0" fill="var(--node-group)"/></svg>Group</div>
+          <div class="legend-item"><svg width="10" height="10" viewBox="-8 -8 16 16"><circle r="5" fill="var(--node-user)"/></svg>User</div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-item"><div class="legend-line" style="background:var(--edge-access)"></div>Access</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--edge-acl)"></div>ACL</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--edge-cred)"></div>Cred</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--edge-deleg)"></div>Deleg</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--edge-member);opacity:0.5"></div>Member</div>
+        </div>
+      </div>
+    </section>
+    <div class="divider"></div>
+    <section class="panel" id="right-panel">
+      <span class="panel-label">BLOODTRAIL ENHANCED</span>
+      <svg id="right-svg"></svg>
+      <div id="chain-sidebar"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span><span class="stat-value" id="stat-chains">0</span> chains detected</span>
+    <span><span class="stat-value" id="stat-quickwins">0</span> quick wins</span>
+    <span><span class="stat-value" id="stat-nodes">0</span> nodes</span>
+  </footer>
+
+  <div id="upload-overlay">
+    <div id="upload-zone">
+      <p>Drop SharpHound ZIP or JSON here</p>
+      <p style="font-size:0.7rem;margin-top:0.5rem;color:var(--text-faint)">or click to browse</p>
+      <input type="file" id="file-input" accept=".zip,.json">
+    </div>
+  </div>
+
+  <div class="bt-tooltip" id="tooltip"></div>
+
+  <script src="/static/graph.js"></script>
+  <script src="/static/enhance.js"></script>
+  <script>
+    let currentData = null;
+
+    async function loadSample() {
+      const res = await fetch('/api/sample');
+      currentData = await res.json();
+      render(currentData);
+    }
+
+    function render(data) {
+      document.getElementById('stat-chains').textContent = (data.chains || []).length;
+      document.getElementById('stat-quickwins').textContent = (data.quick_wins || []).length;
+      document.getElementById('stat-nodes').textContent = (data.nodes || []).length;
+      BloodTrailGraph.initGraph(data);
+      BloodTrailEnhance.applyEnhancements(data);
+    }
+
+    // Polarity toggle
+    document.getElementById('btn-wh').addEventListener('click', () => {
+      document.body.className = 'white-hot';
+      document.getElementById('btn-wh').classList.add('active');
+      document.getElementById('btn-bh').classList.remove('active');
+      BloodTrailEnhance.updateHeatTrailColors('white-hot');
+    });
+
+    document.getElementById('btn-bh').addEventListener('click', () => {
+      document.body.className = 'black-hot';
+      document.getElementById('btn-bh').classList.add('active');
+      document.getElementById('btn-wh').classList.remove('active');
+      BloodTrailEnhance.updateHeatTrailColors('black-hot');
+    });
+
+    // Upload
+    const overlay = document.getElementById('upload-overlay');
+    const zone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+
+    document.getElementById('btn-upload').addEventListener('click', () => {
+      overlay.classList.add('visible');
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('visible');
+    });
+
+    zone.addEventListener('click', () => fileInput.click());
+
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) uploadFile(fileInput.files[0]);
+    });
+
+    async function uploadFile(file) {
+      const form = new FormData();
+      form.append('file', file);
+      zone.querySelector('p').textContent = 'Processing...';
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        if (!res.ok) throw new Error(await res.text());
+        currentData = await res.json();
+        overlay.classList.remove('visible');
+        render(currentData);
+      } catch (err) {
+        zone.querySelector('p').textContent = 'Error: ' + err.message;
+      }
+    }
+
+    loadSample();
+  </script>
+</body>
+</html>

@@ -11,9 +11,79 @@ The tool should act as an intelligent assistant that:
 4. Waits for user decision before proceeding
 5. Tracks state to avoid repetition
 
-## Design Principles
+## CLI Architecture (v1.4.0)
 
-These principles apply to ALL features and the tool as a whole:
+### Subcommand Router
+
+The CLI uses a two-tier routing system in `cli/__init__.py:main()`:
+- If the first arg is a known subcommand → `cli/app.py` (new router)
+- Otherwise → `cli/parser.py` (legacy flat-flag parser)
+
+Both paths are fully supported. Zero breaking changes.
+
+### Subcommands
+
+```
+bloodtrail enum <target>           # Enumerate IP/hostname
+bloodtrail import <path>           # Import BloodHound data
+bloodtrail query list|run|search   # Query library
+bloodtrail pwn mark|list|details   # Pwned user tracking
+bloodtrail creds <user:pass>       # Credential pipeline
+bloodtrail config show|set|new|use # Engagement config
+bloodtrail policy show|set|clear   # Password policy
+bloodtrail spray show|tailored|auto # Password spraying
+bloodtrail analyze detect|services  # Attack analysis
+bloodtrail wizard                  # Guided setup
+bloodtrail ui                      # Web UI
+bloodtrail doctor                  # Pre-flight checks
+bloodtrail quickwin <target>       # enum → roast → report
+bloodtrail ingest <path>           # import → run-all → report
+bloodtrail escalate <user>         # pwn → recommend → post-exploit
+```
+
+### Persistent Configuration
+
+Config at `~/.config/bloodtrail/config.json` (respects `$XDG_CONFIG_HOME`).
+
+**Priority:** CLI flags → engagement config → env vars → defaults.
+
+Managed via `bloodtrail/settings.py`:
+- `Settings` — global Neo4j defaults, active engagement, output limits
+- `Engagement` — per-engagement DC IP, domain, credentials, lhost/lport
+- `StoredCredential` — validated creds cached for reuse via `--as` flag
+- `get_effective_config(args)` — merges all sources into a single dict
+
+### Handler Pattern
+
+Each `_handle_*` function in `cli/app.py`:
+1. Calls `_apply_settings_defaults(args)` to fill from config
+2. Translates subcommand args into legacy `Namespace` attributes
+3. Delegates to the existing `CommandGroup.handle(args)` class
+
+This means existing command handlers in `cli/commands/` don't change.
+
+### Adding a New Subcommand
+
+1. Add name to `SUBCOMMANDS` set in `cli/app.py`
+2. Write `_build_<name>_parser(sub)` — define args, call `_add_global_opts(p)`
+3. Write `_handle_<name>(args)` — translate args, delegate to handler
+4. Register in `create_subcommand_parser()` — call `_build_<name>_parser(sub)`
+5. Add tests in `tests/test_cli_ux.py`
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `cli/__init__.py` | Entry point: `main()` routes to subcommand or legacy |
+| `cli/app.py` | Subcommand parser + handler functions |
+| `cli/parser.py` | Legacy flat-flag parser (backward compat) |
+| `cli/pager.py` | Output pagination (`truncate_results`, `paged_output`) |
+| `cli/base.py` | `BaseCommandGroup` ABC, Neo4j config from settings |
+| `cli/commands/doctor.py` | Pre-flight checks (Neo4j, tools, deps) |
+| `settings.py` | Persistent config, engagements, credential store |
+| `cli/commands/` | One handler class per feature area |
+
+## Design Principles
 
 | Principle | Implementation |
 |-----------|----------------|
@@ -32,6 +102,7 @@ These principles apply to ALL features and the tool as a whole:
 - Require user to remember previous findings
 - Suggest actions that have already been tried
 - Hide the reasoning behind recommendations
+- Add global state to `cli/app.py` handlers — they're stateless translators
 
 ## Recommendation Engine
 
@@ -71,16 +142,6 @@ Finding (input)     →    Trigger (pattern match)    →    Recommendation (out
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-## Key Modules
-
-| Module | Purpose |
-|--------|---------|
-| `enumerators/` | Data collection (LDAP, RPC, Kerbrute, etc.) |
-| `recommendation/` | Finding analysis and recommendation engine |
-| `cli/commands/` | Command handlers for each feature |
-| `display/` | Output formatting |
-| `cypher_queries/` | Neo4j query library |
-
 ## Adding New Features
 
 When adding features to BloodTrail:
@@ -89,6 +150,7 @@ When adding features to BloodTrail:
 2. **Does it recognize a pattern?** → Add trigger rule
 3. **Does it suggest an action?** → Add recommendation template
 4. **Does it need user input?** → Use interactive prompt, don't assume
+5. **Does it need a CLI command?** → Add subcommand in `cli/app.py`
 
 ### Trigger Rule Template
 
@@ -142,7 +204,12 @@ These patterns should be auto-detected and guided:
 5. **AD Recycle Bin Member** → Query deleted objects → Extract legacy passwords
 6. **Valid Credential** → SMB shares → BloodHound → Attack paths
 
-## Testing Recommendations
+## Testing
+
+```bash
+pytest bloodtrail/tests/ -v              # All 283 tests
+pytest bloodtrail/tests/test_cli_ux.py   # 149 CLI UX tests (94% coverage on new code)
+```
 
 When testing BloodTrail features:
 
@@ -151,3 +218,5 @@ When testing BloodTrail features:
 3. Verify state tracks completed actions
 4. Verify WHY is explained for each recommendation
 5. Verify no duplicate suggestions
+6. Verify subcommand args translate correctly to legacy handler flags
+7. Verify persistent config is respected (engagement → effective config)

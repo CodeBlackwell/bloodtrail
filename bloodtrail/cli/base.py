@@ -67,19 +67,16 @@ class BaseCommandGroup(ABC):
     @staticmethod
     def get_neo4j_config(args: Namespace) -> Neo4jConfig:
         """
-        Create Neo4j config from command line arguments.
-
-        Args:
-            args: Parsed arguments with uri, user, password
-
-        Returns:
-            Neo4jConfig instance
+        Create Neo4j config from CLI args + persistent config + env vars.
+        Priority: CLI flags > engagement config > env vars > defaults.
         """
         import os
+        from ..settings import get_effective_config
+        cfg = get_effective_config(args)
         return Neo4jConfig(
-            uri=getattr(args, 'uri', 'bolt://localhost:7687'),
-            user=getattr(args, 'user', 'neo4j'),
-            password=getattr(args, 'neo4j_password', None) or os.environ.get('NEO4J_PASSWORD', '')
+            uri=cfg.get('neo4j_uri', 'bolt://localhost:7687'),
+            user=cfg.get('neo4j_user', 'neo4j'),
+            password=cfg.get('neo4j_password') or os.environ.get('NEO4J_PASSWORD', '')
         )
 
     @staticmethod

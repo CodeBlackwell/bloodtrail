@@ -228,6 +228,18 @@ def _add_behavior_options(parser: argparse.ArgumentParser) -> None:
         metavar="IP",
         help="Set DC IP for DNS resolution and command auto-population",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Max results to display (default: 50, 0 for unlimited)",
+    )
+    parser.add_argument(
+        "--no-pager",
+        action="store_true",
+        help="Disable pager for large output",
+    )
 
 
 def _add_enumerate_options(parser: argparse.ArgumentParser) -> None:

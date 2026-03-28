@@ -196,10 +196,11 @@ const BloodTrailGraph = (() => {
       const len = Math.sqrt(dx*dx + dy*dy) || 1;
       return (d.source.y + d.target.y) / 2 + (dx/len)*8;
     }
-    function nodeTransform(d) { return `translate(${d.x},${d.y})`; }
+    function nodeTransform(d) { return `translate(${d.x}px,${d.y}px)`; }
 
     // Simulation — forces configured by layout mode
     simulation = d3.forceSimulation(nodes)
+      .alphaDecay(0.05)
       .force('link', d3.forceLink(edges).id(d => d.id))
       .force('collide', d3.forceCollide(16));
 
@@ -220,8 +221,8 @@ const BloodTrailGraph = (() => {
           // Left labels are opacity:0 by default, skip entirely unless hovered
         }
 
-        leftNodeGs.attr('transform', nodeTransform);
-        rightNodeGs.attr('transform', nodeTransform);
+        leftNodeGs.style('transform', nodeTransform);
+        rightNodeGs.style('transform', nodeTransform);
       });
 
     setupZoomSync(leftSvg, rightSvg, leftG, rightG);

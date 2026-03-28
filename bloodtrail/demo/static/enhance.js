@@ -93,6 +93,9 @@ const BloodTrailEnhance = (() => {
     const count = Math.min(severity, 3);
     const baseLen = severity === 3 ? 42 : severity === 2 ? 28 : 16;
     const r = _getNodeRadius(g);
+    const ns = 'http://www.w3.org/2000/svg';
+    const parent = g.node();
+    const frag = document.createDocumentFragment();
 
     for (let i = 0; i < count; i++) {
       const xOff = (i - (count - 1) / 2) * 4 + (Math.random() - 0.5) * 2;
@@ -101,24 +104,29 @@ const BloodTrailEnhance = (() => {
       const cx2 = xOff + (Math.random() - 0.5) * 2;
       const sw = 2.5 - i * 0.5 + Math.random() * 0.5;
 
-      g.append('path')
-        .attr('class', `heat-trail trail-${i + 1}`)
-        .attr('d', `M${xOff},${r} Q${cx1},${r + len * 0.4} ${xOff},${r + len * 0.7} Q${cx2},${r + len * 0.85} ${xOff},${r + len}`)
-        .attr('fill', 'none')
-        .attr('stroke', 'url(#heat-trail-grad)')
-        .attr('stroke-width', sw)
-        .attr('stroke-linecap', 'round')
-        .attr('filter', 'url(#heat-blur)');
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('class', `heat-trail trail-${i + 1}`);
+      path.setAttribute('d', `M${xOff},${r} Q${cx1},${r + len * 0.4} ${xOff},${r + len * 0.7} Q${cx2},${r + len * 0.85} ${xOff},${r + len}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', 'url(#heat-trail-grad)');
+      path.setAttribute('stroke-width', sw);
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('filter', 'url(#heat-blur)');
+      frag.appendChild(path);
 
       if (i === 0) {
-        g.append('circle')
-          .attr('class', 'heat-point')
-          .attr('cx', xOff).attr('cy', r + len + 3).attr('r', 2.5)
-          .attr('fill', COLORS[getPolarity()].thermal)
-          .attr('opacity', 0.5)
-          .attr('filter', 'url(#heat-blur)');
+        const circle = document.createElementNS(ns, 'circle');
+        circle.setAttribute('class', 'heat-point');
+        circle.setAttribute('cx', xOff);
+        circle.setAttribute('cy', r + len + 3);
+        circle.setAttribute('r', 2.5);
+        circle.setAttribute('fill', COLORS[getPolarity()].thermal);
+        circle.setAttribute('opacity', 0.5);
+        circle.setAttribute('filter', 'url(#heat-blur)');
+        frag.appendChild(circle);
       }
     }
+    parent.appendChild(frag);
   }
 
   function _applyChainGlow(chain, index, defs) {

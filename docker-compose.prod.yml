@@ -5,6 +5,9 @@ services:
       dockerfile: bloodtrail/demo/Dockerfile
     container_name: bloodtrail-app
     restart: unless-stopped
+    environment:
+      # Caddy replaces X-Forwarded-For with the visitor's address, so uvicorn can trust it from Docker's private range.
+      FORWARDED_ALLOW_IPS: 172.16.0.0/12
     networks:
       - web
 

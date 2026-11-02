@@ -349,8 +349,8 @@ bloodtrail -r                        # → bloodtrail query run-all (resume)
 ## Testing
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,ui]"
 pytest bloodtrail/tests/ -v
 ```
 
-283 tests covering settings, CLI routing, subcommand parsing, engagement profiles, credential store, handler dispatch, pagination, legacy compatibility, and core functionality.
+285 tests covering settings, CLI routing, subcommand parsing, engagement profiles, credential store, handler dispatch, pagination, legacy compatibility, and core functionality.

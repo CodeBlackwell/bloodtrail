@@ -207,7 +207,7 @@ These patterns should be auto-detected and guided:
 ## Testing
 
 ```bash
-pytest bloodtrail/tests/ -v              # All 283 tests
+pytest bloodtrail/tests/ -v              # All 285 tests
 pytest bloodtrail/tests/test_cli_ux.py   # 149 CLI UX tests (94% coverage on new code)
 ```
 

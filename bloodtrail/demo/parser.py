@@ -11,7 +11,8 @@ def parse_upload(path: Path) -> dict:
     source = create_data_source(path)
     nodes = []
     edges = []
-    node_map = {}  # objectid/SID -> {id, name, label}
+    node_map = {}  # node id -> node (dedup by id)
+    oid_map = {}   # objectid/SID -> node, for O(1) edge resolution
 
     for filename, data in source.iter_json_files():
         file_type = _detect_type(filename, data)
@@ -26,7 +27,8 @@ def parse_upload(path: Path) -> dict:
             if node and node["id"] not in node_map:
                 nodes.append(node)
                 node_map[node["id"]] = node
-            _extract_edges(item, props, file_type, node_map, edges)
+                oid_map[node["_oid"]] = node
+            _extract_edges(item, props, file_type, oid_map, edges)
 
     if hasattr(source, "close"):
         source.close()
@@ -83,12 +85,9 @@ def _extract_node(item: dict, props: dict, file_type: str) -> dict:
             "_oid": oid}
 
 
-def _resolve(oid: str, node_map: dict) -> dict:
-    """Find node info by objectid."""
-    for n in node_map.values():
-        if n.get("_oid") == oid:
-            return n
-    return None
+def _resolve(oid: str, oid_map: dict) -> dict:
+    """Find node info by objectid via the prebuilt index."""
+    return oid_map.get(oid)
 
 
 def _add_edge(edges: list, src: dict, tgt: dict, edge_type: str):
@@ -99,9 +98,9 @@ def _add_edge(edges: list, src: dict, tgt: dict, edge_type: str):
     })
 
 
-def _extract_edges(item: dict, props: dict, file_type: str, node_map: dict, edges: list):
+def _extract_edges(item: dict, props: dict, file_type: str, oid_map: dict, edges: list):
     oid = item.get("ObjectIdentifier", props.get("objectid", ""))
-    src = _resolve(oid, node_map)
+    src = _resolve(oid, oid_map)
     if not src:
         return
 
@@ -113,7 +112,7 @@ def _extract_edges(item: dict, props: dict, file_type: str, node_map: dict, edge
         right = ace.get("RightName", "")
         if not right or not principal_sid:
             continue
-        principal = _resolve(principal_sid, node_map)
+        principal = _resolve(principal_sid, oid_map)
         if principal:
             _add_edge(edges, principal, src, right)
 
@@ -122,7 +121,7 @@ def _extract_edges(item: dict, props: dict, file_type: str, node_map: dict, edge
         if not isinstance(member, dict):
             continue
         mid = member.get("ObjectIdentifier", "")
-        m = _resolve(mid, node_map)
+        m = _resolve(mid, oid_map)
         if m:
             _add_edge(edges, m, src, "MemberOf")
 
@@ -130,21 +129,21 @@ def _extract_edges(item: dict, props: dict, file_type: str, node_map: dict, edge
         for rel_key, edge_type in [("LocalAdmins", "AdminTo"), ("RemoteDesktopUsers", "CanRDP"),
                                     ("PSRemoteUsers", "CanPSRemote"), ("DcomUsers", "ExecuteDCOM")]:
             for entry in _get_results(item, rel_key):
-                e = _resolve(entry.get("ObjectIdentifier", ""), node_map)
+                e = _resolve(entry.get("ObjectIdentifier", ""), oid_map)
                 if e:
                     _add_edge(edges, e, src, edge_type)
         for entry in _get_results(item, "Sessions"):
-            e = _resolve(entry.get("UserSID", entry.get("ObjectIdentifier", "")), node_map)
+            e = _resolve(entry.get("UserSID", entry.get("ObjectIdentifier", "")), oid_map)
             if e:
                 _add_edge(edges, e, src, "HasSession")
         for entry in item.get("AllowedToDelegate", []) or []:
             if isinstance(entry, dict):
-                e = _resolve(entry.get("ObjectIdentifier", ""), node_map)
+                e = _resolve(entry.get("ObjectIdentifier", ""), oid_map)
                 if e:
                     _add_edge(edges, src, e, "AllowedToDelegate")
         for entry in item.get("AllowedToAct", []) or []:
             if isinstance(entry, dict):
-                e = _resolve(entry.get("ObjectIdentifier", ""), node_map)
+                e = _resolve(entry.get("ObjectIdentifier", ""), oid_map)
                 if e:
                     _add_edge(edges, e, src, "AllowedToAct")
 

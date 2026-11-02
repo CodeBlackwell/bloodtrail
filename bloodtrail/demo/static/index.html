@@ -86,9 +86,9 @@
 
   <div id="upload-overlay">
     <div id="upload-zone">
-      <p>Drop SharpHound ZIP or JSON here</p>
+      <p>Drop SharpHound ZIP here</p>
       <p style="font-size:0.7rem;margin-top:0.5rem;color:var(--text-faint)">or click to browse</p>
-      <input type="file" id="file-input" accept=".zip,.json">
+      <input type="file" id="file-input" accept=".zip">
     </div>
   </div>
 
@@ -296,8 +296,8 @@
         return;
       }
       const ext = file.name.split('.').pop().toLowerCase();
-      if (!['zip', 'json'].includes(ext)) {
-        zone.querySelector('p').textContent = 'Invalid file type. Use .zip or .json';
+      if (ext !== 'zip') {
+        zone.querySelector('p').textContent = 'Invalid file type. Use .zip';
         return;
       }
       const form = new FormData();

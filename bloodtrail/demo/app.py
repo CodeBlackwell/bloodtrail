@@ -8,12 +8,13 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.concurrency import run_in_threadpool
 
 from .parser import parse_upload
 from .analyzer import analyze
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
-ALLOWED_EXTENSIONS = {".zip", ".json"}
+ALLOWED_EXTENSIONS = {".zip"}
 UPLOAD_RATE_WINDOW = 3600  # 1 hour
 UPLOAD_RATE_LIMIT = 3      # max uploads per window per IP
 
@@ -67,6 +68,15 @@ def _check_rate_limit(client_ip: str):
     _upload_times[client_ip].append(now)
 
 
+def _parse_and_analyze(path: Path) -> dict:
+    parsed = parse_upload(path)
+    result = analyze(parsed["nodes"], parsed["edges"])
+    parsed["chains"] = result["chains"]
+    parsed["quick_wins"] = result["quick_wins"]
+    parsed["meta"]["chain_count"] = len(result["chains"])
+    return parsed
+
+
 @app.post("/api/upload")
 async def api_upload(request: Request, file: UploadFile):
     # Rate limit per IP
@@ -87,12 +97,7 @@ async def api_upload(request: Request, file: UploadFile):
         tmp.write(content)
         tmp_path = Path(tmp.name)
     try:
-        parsed = parse_upload(tmp_path)
-        result = analyze(parsed["nodes"], parsed["edges"])
-        parsed["chains"] = result["chains"]
-        parsed["quick_wins"] = result["quick_wins"]
-        parsed["meta"]["chain_count"] = len(result["chains"])
-        return parsed
+        return await run_in_threadpool(_parse_and_analyze, tmp_path)
     except Exception:
         raise HTTPException(422, "Failed to parse file. Ensure it is valid SharpHound output.")
     finally:
